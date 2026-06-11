@@ -1,4 +1,4 @@
-// CupHub Database Types — mirrors Supabase schema
+// BentoKick Database Types — mirrors Supabase schema
 
 export interface Profile {
   id: string

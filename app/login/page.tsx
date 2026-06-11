@@ -28,7 +28,7 @@ export default function LoginPage() {
           options: { emailRedirectTo: `${location.origin}/auth/callback` },
         })
         if (error) throw error
-        setMessage('Check your email for a confirmation link!')
+         setMessage('You can proceed for Login')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
@@ -76,8 +76,8 @@ export default function LoginPage() {
             <Trophy size={28} color="#0A0C10" strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="login-title">CupHub</h1>
-            <p className="login-subtitle">Fantasy Engine</p>
+            <h1 className="login-title">BentoKick</h1>
+            <p className="login-subtitle">FANTASY ENGINE</p>
           </div>
         </div>
 

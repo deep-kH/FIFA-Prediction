@@ -11,13 +11,14 @@ interface Props {
   existingBallot?: Ballot
   existingPollAnswers?: PollAnswer[]
   allBallots?: any[]
+  allPollAnswers?: any[]
   onBallotSaved: (ballot: Ballot) => void
   onPollAnswerSaved: (answer: PollAnswer) => void
 }
 
 export default function BallotCard({
   match, profile, existingBallot, existingPollAnswers = [],
-  allBallots = [],
+  allBallots = [], allPollAnswers = [],
   onBallotSaved, onPollAnswerSaved
 }: Props) {
   const supabase = createClient()
@@ -353,50 +354,88 @@ export default function BallotCard({
             {allBallots.filter(b => b.match_id === match.id).length === 0 ? (
               <p className="text-muted" style={{ fontSize: '13px', textAlign: 'center' }}>No predictions submitted for this match.</p>
             ) : (
-              allBallots.filter(b => b.match_id === match.id).map(b => (
-                <div key={b.id} style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div className="lb-avatar" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
-                        {b.profiles?.avatar_letter || '?'}
+              allBallots.filter(b => b.match_id === match.id).map(b => {
+                // Get this user's poll answers for this match
+                const matchPollIds = (match.custom_polls || []).map((cp: any) => cp.id)
+                const userPollAnswersForReveal = allPollAnswers.filter(
+                  (pa: any) => pa.user_id === b.user_id && matchPollIds.includes(pa.poll_id)
+                )
+
+                return (
+                  <div key={b.id} style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px' }}>
+                    {/* Header: avatar, name, score prediction, points */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div className="lb-avatar" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
+                          {b.profiles?.avatar_letter || '?'}
+                        </div>
+                        <span style={{ fontSize: '14px', fontWeight: 700 }}>
+                          {b.profiles?.display_name || 'Unknown'}
+                          {b.user_id === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
+                        </span>
                       </div>
-                      <span style={{ fontSize: '14px', fontWeight: 700 }}>
-                        {b.profiles?.display_name || 'Unknown'}
-                        {b.user_id === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px' }}>
-                        {b.predicted_home_score} - {b.predicted_away_score}
-                      </span>
-                      {isCompleted && (
-                        <span className="badge badge-gold" style={{ fontSize: '12px', padding: '3px 10px', fontWeight: 800 }}>
-                          +{b.points_earned || 0}
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px' }}>
+                          {b.predicted_home_score} - {b.predicted_away_score}
                         </span>
-                      )}
+                        {isCompleted && (
+                          <span className="badge badge-gold" style={{ fontSize: '12px', padding: '3px 10px', fontWeight: 800 }}>
+                            +{b.points_earned || 0}
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Point breakdown badges */}
+                    {isCompleted && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', paddingLeft: '42px' }}>
+                        {(b.score_points_earned || 0) > 0 && (
+                          <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                            {b.score_points_earned === 5 ? 'Exact' : 'Outcome'}
+                          </span>
+                        )}
+                        {(b.team_points_earned || 0) > 0 && (
+                          <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                            Team +{b.team_points_earned}
+                          </span>
+                        )}
+                        {(b.accuracy_bonus_earned || 0) > 0 && (
+                          <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                            {b.accuracy_rate?.toFixed(0)}% → Bonus +{b.accuracy_bonus_earned}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Poll Answers */}
+                    {userPollAnswersForReveal.length > 0 && (
+                      <div style={{ marginTop: '10px', paddingLeft: '42px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {(match.custom_polls || []).map((poll: any) => {
+                          const answer = userPollAnswersForReveal.find((pa: any) => pa.poll_id === poll.id)
+                          if (!answer) return null
+                          const optKey = `option_${answer.selected_option.toLowerCase()}` as keyof typeof poll
+                          const optionText = poll[optKey] || answer.selected_option
+                          const isCorrect = isCompleted && poll.correct_option === answer.selected_option
+
+                          return (
+                            <div key={poll.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px' }}>
+                              <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Q:</span>
+                              <span className="text-secondary" style={{ flex: 1 }}>
+                                {poll.question.length > 40 ? poll.question.slice(0, 40) + '…' : poll.question}
+                              </span>
+                              <span className={`badge ${isCompleted ? (isCorrect ? 'badge-green' : 'badge-red') : 'badge-gray'}`}
+                                style={{ fontSize: '10px', padding: '1px 6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                {answer.selected_option}: {optionText.length > 15 ? optionText.slice(0, 15) + '…' : optionText}
+                                {isCompleted && (isCorrect ? ' ✓' : ' ✗')}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                  {isCompleted && (
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', paddingLeft: '42px' }}>
-                      {(b.score_points_earned || 0) > 0 && (
-                        <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                          {b.score_points_earned === 5 ? 'Exact' : 'Outcome'}
-                        </span>
-                      )}
-                      {(b.team_points_earned || 0) > 0 && (
-                        <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                          Team +{b.team_points_earned}
-                        </span>
-                      )}
-                      {(b.accuracy_bonus_earned || 0) > 0 && (
-                        <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                          {b.accuracy_rate?.toFixed(0)}% → Bonus +{b.accuracy_bonus_earned}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

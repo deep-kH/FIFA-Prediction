@@ -8,7 +8,7 @@ import BallotCard from '@/components/BallotCard'
 import AdminPanel from '@/components/admin/AdminPanel'
 import ThemeToggle from '@/components/ThemeToggle'
 import {
-  Trophy, LogOut, Shield, Zap,
+  Trophy, LogOut, Shield, Zap, Pencil,
   ChevronDown, ChevronUp, User, BarChart2
 } from 'lucide-react'
 
@@ -32,6 +32,8 @@ export default function DashboardClient({
   const [ballots, setBallots] = useState<Ballot[]>(userBallots)
   const [pollAnswers, setPollAnswers] = useState<PollAnswer[]>(userPollAnswers)
   const [profileModalUser, setProfileModalUser] = useState<any | null>(null)
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [currentProfile, setCurrentProfile] = useState(profile)
 
   const supabase = createClient()
 
@@ -105,28 +107,36 @@ export default function DashboardClient({
             <Trophy size={20} color="#0A0C10" strokeWidth={2.5} />
           </div>
           <div style={{ flex: 1 }}>
-            <span className="sidebar-logo-text font-display">CupHub</span>
+            <span className="sidebar-logo-text font-display">BentoKick</span>
             <span className="sidebar-logo-sub">Fantasy Engine</span>
           </div>
           <ThemeToggle />
         </div>
 
         {/* Profile */}
-        <div className="sidebar-profile">
-          <div className="sidebar-avatar">{profile.avatar_letter}</div>
+        <div className="sidebar-profile" style={{ position: 'relative' }}>
+          <div className="sidebar-avatar">{currentProfile.avatar_letter}</div>
           <div className="sidebar-profile-info">
-            <span className="sidebar-profile-name">{profile.display_name}</span>
+            <span className="sidebar-profile-name">{currentProfile.display_name}</span>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
               <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 7px' }}>
-                {profile.total_points} pts
+                {currentProfile.total_points} pts
               </span>
-              {profile.is_admin && (
+              {currentProfile.is_admin && (
                 <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 7px' }}>
                   <Shield size={9} /> Admin
                 </span>
               )}
             </div>
           </div>
+          <button
+            onClick={() => setShowProfileEdit(true)}
+            className="btn btn-ghost btn-sm btn-icon"
+            style={{ position: 'absolute', top: '6px', right: '6px', padding: '4px' }}
+            title="Edit Profile"
+          >
+            <Pencil size={13} />
+          </button>
         </div>
 
         <div className="divider" style={{ margin: '0' }} />
@@ -191,10 +201,11 @@ export default function DashboardClient({
             selectedMatchId={selectedMatchId}
             setSelectedMatchId={setSelectedMatchId}
             selectedMatch={selectedMatch}
-            profile={profile}
+            profile={currentProfile}
             userBallot={userBallotForMatch}
             userPollAnswers={userPollAnswersForMatch}
             allBallots={ballots}
+            allPollAnswers={pollAnswers}
             onBallotSaved={handleBallotSaved}
             onPollAnswerSaved={handlePollAnswerSaved}
           />
@@ -244,10 +255,23 @@ export default function DashboardClient({
       {profileModalUser && (
         <ProfileModal
           user={profileModalUser}
-          currentUserId={profile.id}
+          currentUserId={currentProfile.id}
           allBallots={ballots}
           matches={matches}
           onClose={() => setProfileModalUser(null)}
+        />
+      )}
+
+      {/* Profile Edit Modal */}
+      {showProfileEdit && (
+        <ProfileEditModal
+          profile={currentProfile}
+          onClose={() => setShowProfileEdit(false)}
+          onSaved={(updated: Profile) => {
+            setCurrentProfile(updated)
+            setLeaderboard(prev => prev.map(p => p.id === updated.id ? { ...p, display_name: updated.display_name, avatar_letter: updated.avatar_letter } : p))
+            setShowProfileEdit(false)
+          }}
         />
       )}
 
@@ -379,7 +403,7 @@ export default function DashboardClient({
 }
 
 // ─── MATCHES TAB ───────────────────────────────────────────
-function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, selectedMatch, profile, userBallot, userPollAnswers, allBallots, onBallotSaved, onPollAnswerSaved }: any) {
+function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, selectedMatch, profile, userBallot, userPollAnswers, allBallots, allPollAnswers, onBallotSaved, onPollAnswerSaved }: any) {
   const [showCompleted, setShowCompleted] = useState(false)
   const upcoming = matches.filter((m: any) => !m.is_completed)
   const completed = matches.filter((m: any) => m.is_completed)
@@ -438,6 +462,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, selectedMatc
             existingBallot={userBallot}
             existingPollAnswers={userPollAnswers}
             allBallots={allBallots}
+            allPollAnswers={allPollAnswers}
             onBallotSaved={onBallotSaved}
             onPollAnswerSaved={onPollAnswerSaved}
           />
@@ -591,6 +616,126 @@ function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── PROFILE EDIT MODAL ────────────────────────────────────
+const EMOJI_OPTIONS = [
+  '⚽', '🏆', '🥇', '🎯', '🔥', '⭐', '🦁', '🐺', '🦅', '🐉',
+  '🎩', '👑', '💎', '🚀', '⚡', '🎸', '🎮', '🤖', '👽', '🦄',
+  '🧠', '💀', '🎃', '🎪', '🌟', '🌊', '🍀', '🌶️', '🎱', '🏴‍☠️',
+  '😎', '🤩', '😈', '🥶', '🤠', '🫡', '🧐', '😤', '🫣', '🤓',
+]
+
+function ProfileEditModal({ profile, onClose, onSaved }: { profile: Profile; onClose: () => void; onSaved: (p: Profile) => void }) {
+  const supabase = createClient()
+  const [displayName, setDisplayName] = useState(profile.display_name)
+  const [avatarEmoji, setAvatarEmoji] = useState(profile.avatar_letter)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSave = async () => {
+    const trimmed = displayName.trim()
+    if (!trimmed || trimmed.length < 2) {
+      setError('Display name must be at least 2 characters.')
+      return
+    }
+    if (trimmed.length > 20) {
+      setError('Display name must be at most 20 characters.')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+
+    const { data, error: dbError } = await supabase
+      .from('profiles')
+      .update({ display_name: trimmed, avatar_letter: avatarEmoji })
+      .eq('id', profile.id)
+      .select()
+      .single()
+
+    if (dbError) {
+      setError(dbError.message)
+      setSaving(false)
+      return
+    }
+
+    onSaved(data as Profile)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>Edit Profile</h2>
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Avatar Emoji Picker */}
+        <div style={{ marginBottom: '20px' }}>
+          <label className="form-label" style={{ marginBottom: '10px', display: 'block' }}>Choose Your Avatar</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%', background: 'var(--cup-gold)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px',
+              boxShadow: 'var(--glow-gold)', flexShrink: 0
+            }}>
+              {avatarEmoji}
+            </div>
+            <span className="text-muted" style={{ fontSize: '13px' }}>Tap an emoji below to change</span>
+          </div>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: '4px',
+            background: 'var(--surface-raised)', borderRadius: '10px', padding: '10px',
+            maxHeight: '160px', overflowY: 'auto'
+          }}>
+            {EMOJI_OPTIONS.map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => setAvatarEmoji(emoji)}
+                style={{
+                  width: '32px', height: '32px', fontSize: '18px', background: avatarEmoji === emoji ? 'rgba(245,200,66,0.25)' : 'transparent',
+                  border: avatarEmoji === emoji ? '2px solid var(--cup-gold)' : '2px solid transparent',
+                  borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Display Name */}
+        <div style={{ marginBottom: '16px' }}>
+          <label className="form-label" style={{ marginBottom: '6px', display: 'block' }}>Display Name</label>
+          <input
+            className="form-input"
+            type="text"
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            maxLength={20}
+            placeholder="Enter your display name"
+            style={{ width: '100%' }}
+          />
+          <p className="text-muted" style={{ fontSize: '11px', marginTop: '4px' }}>{displayName.length}/20 characters</p>
+        </div>
+
+        {error && (
+          <p style={{ color: 'var(--cup-red)', fontSize: '13px', marginBottom: '12px' }}>{error}</p>
+        )}
+
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%' }}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
       </div>
     </div>
   )

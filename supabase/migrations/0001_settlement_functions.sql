@@ -1,5 +1,5 @@
 -- =============================================
--- CupHub Fantasy Engine — UPDATED Point Settlement Function
+-- BentoKick Fantasy Engine — UPDATED Point Settlement Function
 -- Implements: scores.md comprehensive rules
 --   1. Exact Scoreline: +5 pts (exclusive, no double-dip)
 --   2. Outcome Accuracy: +2 pts (only if exact missed)

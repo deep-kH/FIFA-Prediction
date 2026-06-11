@@ -1,5 +1,5 @@
 -- =============================================
--- CupHub Fantasy Engine — Complete Database Schema
+-- BentoKick Fantasy Engine — Complete Database Schema
 -- Run this in Supabase SQL Editor
 -- =============================================
 
