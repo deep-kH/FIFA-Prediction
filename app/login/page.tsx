@@ -28,7 +28,7 @@ export default function LoginPage() {
           options: { emailRedirectTo: `${location.origin}/auth/callback` },
         })
         if (error) throw error
-         setMessage('You can proceed for Login')
+        setMessage('You can proceed for Login')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error

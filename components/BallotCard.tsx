@@ -256,7 +256,7 @@ export default function BallotCard({
           <div className="slant-block" style={{ alignSelf: 'flex-start', padding: '4px 12px 4px 0' }}>
             <p className="ballot-section-title hud-header" style={{ margin: 0 }}>
               <span className="ballot-section-num">2</span>
-              Top Match Scorer
+              Player of the Match
             </p>
           </div>
           {isLocked && isCompleted && match.top_scorer ? (
