@@ -137,7 +137,7 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
 
             {/* Top Scorer */}
             <div>
-              <label className="form-label" htmlFor="settle-top-scorer">Official Top Scorer</label>
+              <label className="form-label" htmlFor="settle-top-scorer">Official Player of the Match</label>
               <select id="settle-top-scorer" className="form-select" value={topScorerId} onChange={e => setTopScorerId(e.target.value)}>
                 <option value="">No scorer / N/A</option>
                 {homePlayers.length > 0 && (

@@ -99,59 +99,47 @@ export default function DashboardClient({
 
   return (
     <div className="dashboard-layout">
-      {/* ─── SIDEBAR ─── */}
-      <aside className="dashboard-sidebar">
-        {/* Logo */}
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">
-            <Trophy size={20} color="#0A0C10" strokeWidth={2.5} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <span className="sidebar-logo-text font-display">BentoKick</span>
-            <span className="sidebar-logo-sub">Fantasy Engine</span>
-          </div>
-          <ThemeToggle />
-        </div>
-
-        {/* Profile */}
-        <div className="sidebar-profile" style={{ position: 'relative' }}>
-          <div className="sidebar-avatar">{currentProfile.avatar_letter}</div>
-          <div className="sidebar-profile-info">
-            <span className="sidebar-profile-name">{currentProfile.display_name}</span>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 7px' }}>
-                {currentProfile.total_points} pts
-              </span>
-              {currentProfile.is_admin && (
-                <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 7px' }}>
-                  <Shield size={9} /> Admin
-                </span>
-              )}
+      {/* ─── TOP NAV ─── */}
+      <header className="dashboard-topnav">
+        <div className="topnav-header">
+          {/* Logo */}
+          <div className="sidebar-logo">
+            <div className="sidebar-logo-icon">
+              <Trophy size={20} color="#0A0C10" strokeWidth={2.5} />
+            </div>
+            <div>
+              <span className="sidebar-logo-text font-display" style={{ fontSize: '18px' }}>BentoKick</span>
             </div>
           </div>
-          <button
-            onClick={() => setShowProfileEdit(true)}
-            className="btn btn-ghost btn-sm btn-icon"
-            style={{ position: 'absolute', top: '6px', right: '6px', padding: '4px' }}
-            title="Edit Profile"
-          >
-            <Pencil size={13} />
-          </button>
+
+          {/* Controls: Profile, Theme Toggle, Sign Out */}
+          <div className="topnav-controls">
+            <button
+              onClick={() => setShowProfileEdit(true)}
+              className="sidebar-avatar"
+              style={{ width: '32px', height: '32px', fontSize: '14px', cursor: 'pointer', border: 'none', padding: 0 }}
+              title="Edit Profile"
+            >
+              {currentProfile.avatar_letter}
+            </button>
+            <ThemeToggle />
+            <button className="btn btn-ghost btn-icon" onClick={handleSignOut} title="Sign Out">
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
 
-        <div className="divider" style={{ margin: '0' }} />
-
-        {/* Nav Tabs */}
-        <nav className="sidebar-nav">
+        {/* Nav Tabs (Pills) */}
+        <nav className="topnav-nav">
           {[
-            { id: 'matches', label: 'Match Ballots', icon: <Zap size={16} /> },
-            { id: 'leaderboard', label: 'Standings', icon: <BarChart2 size={16} /> },
-            ...(profile.is_admin ? [{ id: 'admin', label: 'Admin Center', icon: <Shield size={16} /> }] : []),
+            { id: 'matches', label: 'Match Ballots', icon: <Zap size={14} /> },
+            { id: 'leaderboard', label: 'Standings', icon: <BarChart2 size={14} /> },
+            ...(profile.is_admin ? [{ id: 'admin', label: 'Admin Center', icon: <Shield size={14} /> }] : []),
           ].map(tab => (
             <button
               key={tab.id}
               id={`tab-${tab.id}`}
-              className={`sidebar-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+              className={`topnav-nav-item ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.id as any)}
             >
               {tab.icon}
@@ -159,39 +147,7 @@ export default function DashboardClient({
             </button>
           ))}
         </nav>
-
-        {/* Mini Leaderboard */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <p className="form-label" style={{ padding: '0 8px', marginBottom: '10px' }}>
-            Top Scorers
-          </p>
-          {leaderboard.slice(0, 5).map((entry, i) => (
-            <button
-              key={entry.id}
-              className="lb-row"
-              style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-              onClick={() => setProfileModalUser(entry)}
-            >
-              <span className={`lb-rank lb-rank-${i + 1}`}>{i + 1}</span>
-              <div className="lb-avatar" style={{ fontSize: '13px' }}>{entry.avatar_letter}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {entry.display_name}
-                  {entry.id === profile.id && <span style={{ color: 'var(--cup-gold)', marginLeft: '4px' }}>·You</span>}
-                </p>
-              </div>
-              <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 8px' }}>
-                {entry.total_points}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Sign Out */}
-        <button className="btn btn-ghost btn-sm" id="signout-btn" onClick={handleSignOut} style={{ width: '100%' }}>
-          <LogOut size={14} /> Sign Out
-        </button>
-      </aside>
+      </header>
 
       {/* ─── MAIN CONTENT ─── */}
       <main className="dashboard-main">
@@ -278,28 +234,69 @@ export default function DashboardClient({
       <style jsx>{`
         .dashboard-layout {
           display: flex;
+          flex-direction: column;
           min-height: 100vh;
           background: var(--surface-base);
         }
-        .dashboard-sidebar {
-          width: 260px;
-          flex-shrink: 0;
+        .dashboard-topnav {
           background: var(--surface-card);
-          border-right: 1px solid var(--border-subtle);
+          border-bottom: 1px solid var(--border-subtle);
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          padding: 20px 14px;
+          padding: 16px 24px;
           position: sticky;
           top: 0;
-          height: 100vh;
-          overflow-y: auto;
+          z-index: 50;
+          gap: 16px;
+        }
+        .topnav-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .topnav-controls {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .topnav-nav {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+        .topnav-nav::-webkit-scrollbar {
+          height: 4px;
+        }
+        .topnav-nav-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          border-radius: 20px;
+          border: 1px solid transparent;
+          background: var(--surface-raised);
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+        .topnav-nav-item:hover {
+          background: rgba(245,200,66,0.1);
+          color: var(--text-primary);
+        }
+        .topnav-nav-item.active {
+          background: var(--cup-gold);
+          color: #0A0C10;
+          border-color: var(--cup-gold);
         }
         .sidebar-logo {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 4px 4px 0;
         }
         .sidebar-logo-icon {
           width: 38px; height: 38px;
@@ -356,45 +353,15 @@ export default function DashboardClient({
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .sidebar-nav {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .sidebar-nav-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 12px;
-          border-radius: 10px;
-          border: 1px solid transparent;
-          background: none;
-          color: var(--text-secondary);
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          text-align: left;
-          width: 100%;
-        }
-        .sidebar-nav-item:hover {
-          background: var(--surface-raised);
-          color: var(--text-primary);
-        }
-        .sidebar-nav-item.active {
-          background: rgba(245,200,66,0.1);
-          color: var(--cup-gold);
-          border-color: rgba(245,200,66,0.25);
-        }
         .dashboard-main {
           flex: 1;
-          min-width: 0;
-          padding: 28px;
-          overflow-y: auto;
+          padding: 24px;
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
         }
         @media (max-width: 768px) {
-          .dashboard-layout { flex-direction: column; }
-          .dashboard-sidebar { width: 100%; height: auto; position: relative; }
+          .dashboard-topnav { padding: 12px 16px; gap: 12px; }
           .dashboard-main { padding: 16px; }
         }
       `}</style>

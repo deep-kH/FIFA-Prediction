@@ -69,6 +69,7 @@ export default function BallotCard({
       const diff = kickoff.getTime() - Date.now()
       if (diff <= 0) {
         setCountdown({ d: 0, h: 0, m: 0, s: 0 })
+        setIsLocked(true)
         if (intervalRef.current) clearInterval(intervalRef.current)
         return
       }
