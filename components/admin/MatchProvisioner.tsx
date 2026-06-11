@@ -103,7 +103,7 @@ export default function MatchProvisioner({ onSaved }: Props) {
       if (polls.length > 0 && match) {
         const { error: pollError } = await supabase.from('custom_polls').insert(
           polls
-            .filter(p => p.question && p.option_a && p.option_b && p.option_c && p.option_d)
+            .filter(p => p.question && [p.option_a, p.option_b, p.option_c, p.option_d].filter(opt => opt && opt.trim() !== '').length > 1)
             .map(p => ({ ...p, match_id: match.id }))
         )
         if (pollError) throw pollError

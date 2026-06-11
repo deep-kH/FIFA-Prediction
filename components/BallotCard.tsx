@@ -526,8 +526,10 @@ function PollQuestion({ poll, index, selected, isLocked, isCompleted, onSelect }
   isCompleted: boolean
   onSelect: (opt: 'A' | 'B' | 'C' | 'D') => void
 }) {
-  const options: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D']
   const optionLabels = { A: poll.option_a, B: poll.option_b, C: poll.option_c, D: poll.option_d }
+  const options: ('A' | 'B' | 'C' | 'D')[] = (['A', 'B', 'C', 'D'] as ('A' | 'B' | 'C' | 'D')[]).filter(
+    opt => optionLabels[opt] && optionLabels[opt].trim() !== ''
+  )
 
   const getOptionClass = (opt: 'A' | 'B' | 'C' | 'D') => {
     if (isCompleted && poll.correct_option) {

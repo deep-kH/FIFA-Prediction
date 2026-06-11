@@ -161,7 +161,12 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
                   <div key={poll.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', background: 'var(--surface-raised)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
                     <p style={{ fontSize: '13px', fontWeight: 600 }}>Q{i + 1}: {poll.question}</p>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {(['A', 'B', 'C', 'D'] as const).map(opt => (
+                      {(['A', 'B', 'C', 'D'] as const)
+                        .filter(opt => {
+                          const val = opt === 'A' ? poll.option_a : opt === 'B' ? poll.option_b : opt === 'C' ? poll.option_c : poll.option_d;
+                          return val && val.trim() !== '';
+                        })
+                        .map(opt => (
                         <button
                           key={opt}
                           id={`settle-poll-${poll.id}-${opt}`}
