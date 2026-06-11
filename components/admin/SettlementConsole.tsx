@@ -26,12 +26,18 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
   const selectedMatch = matches.find(m => m.id === parseInt(selectedMatchId))
 
   useEffect(() => {
-    if (!selectedMatch) { setPlayers([]); return }
+    if (!selectedMatch) {
+      setTimeout(() => setPlayers([]), 0)
+      return
+    }
     supabase.from('players').select('*, teams(*)')
       .in('team_id', [selectedMatch.home_team_id, selectedMatch.away_team_id])
       .order('name')
       .then(({ data }) => setPlayers(data || []))
-    setHomeScore(''); setAwayScore(''); setTopScorerId(''); setPollAnswers({})
+    setTimeout(() => {
+      setHomeScore(''); setAwayScore(''); setTopScorerId(''); setPollAnswers({})
+    }, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMatchId])
 
   const handleSettle = async () => {

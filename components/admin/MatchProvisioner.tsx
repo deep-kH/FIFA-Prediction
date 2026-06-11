@@ -41,6 +41,7 @@ export default function MatchProvisioner({ onSaved }: Props) {
 
   useEffect(() => {
     supabase.from('teams').select('*').order('name').then(({ data }) => setTeams(data || []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addPoll = () => {

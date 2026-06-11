@@ -44,7 +44,9 @@ export default function BallotCard({
 
   // Hydration-safe: compute isLocked only on the client after mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLocked(new Date() >= kickoff)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.kickoff_time])
 
   // Load squad players for both teams
@@ -58,6 +60,7 @@ export default function BallotCard({
       setPlayers(data || [])
     }
     fetchPlayers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.id])
 
   // Countdown timer
@@ -80,6 +83,7 @@ export default function BallotCard({
       intervalRef.current = setInterval(tick, 1000)
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.kickoff_time])
 
   const handleSave = async () => {

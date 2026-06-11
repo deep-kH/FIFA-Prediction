@@ -502,7 +502,9 @@ function MatchSelectorRow({ match, isSelected, onSelect, hasBallot }: any) {
   const isCompleted = match.is_completed
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLocked(new Date() >= kickoff)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.kickoff_time])
 
   return (

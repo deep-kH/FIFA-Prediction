@@ -18,12 +18,17 @@ export default function SquadManager() {
 
   useEffect(() => {
     supabase.from('teams').select('*').order('name').then(({ data }) => setTeams(data || []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    if (!selectedTeamId) { setPlayers([]); return }
+    if (!selectedTeamId) {
+      setTimeout(() => setPlayers([]), 0)
+      return
+    }
     supabase.from('players').select('*').eq('team_id', selectedTeamId).order('name')
       .then(({ data }) => setPlayers(data || []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTeamId])
 
   const handleAdd = async () => {

@@ -106,12 +106,12 @@ declare
   v_display_name text;
   v_avatar_letter text;
 begin
-  -- Check if email is whitelisted
-  if not exists (
-    select 1 from public.allowed_friends where email = new.email
-  ) then
-    raise exception 'NOT_WHITELISTED: % is not authorized to join this hub.', new.email;
-  end if;
+  -- Check if email is whitelisted (REMOVED - Anyone can sign up)
+  -- if not exists (
+  --   select 1 from public.allowed_friends where email = new.email
+  -- ) then
+  --   raise exception 'NOT_WHITELISTED: % is not authorized to join this hub.', new.email;
+  -- end if;
 
   -- Derive display name from email or metadata
   v_display_name := coalesce(

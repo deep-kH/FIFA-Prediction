@@ -85,11 +85,11 @@ export default function LoginPage() {
         <div className="login-card bento-card">
           <div className="login-card-header">
             <h2 className="login-card-title">
-              {isSignUp ? 'Request Access' : 'Welcome Back'}
+              {isSignUp ? 'Create Account' : 'Welcome Back'}
             </h2>
             <p className="login-card-desc">
               {isSignUp
-                ? 'Sign up with your whitelisted email address.'
+                ? 'Sign up to join the competition.'
                 : 'Sign in to manage your predictions.'}
             </p>
           </div>
