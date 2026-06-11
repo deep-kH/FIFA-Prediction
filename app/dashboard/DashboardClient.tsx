@@ -1,0 +1,597 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import { Profile, Match, Ballot, PollAnswer } from '@/types/database'
+import Leaderboard from '@/components/Leaderboard'
+import BallotCard from '@/components/BallotCard'
+import AdminPanel from '@/components/admin/AdminPanel'
+import ThemeToggle from '@/components/ThemeToggle'
+import {
+  Trophy, LogOut, Shield, Zap,
+  ChevronDown, ChevronUp, User, BarChart2
+} from 'lucide-react'
+
+interface Props {
+  profile: Profile
+  matches: any[]
+  leaderboard: any[]
+  userBallots: Ballot[]
+  userPollAnswers: PollAnswer[]
+}
+
+export default function DashboardClient({
+  profile, matches, leaderboard: initialLeaderboard,
+  userBallots, userPollAnswers
+}: Props) {
+  const [activeTab, setActiveTab] = useState<'matches' | 'leaderboard' | 'admin'>('matches')
+  const [leaderboard, setLeaderboard] = useState(initialLeaderboard)
+  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(
+    matches.find(m => !m.is_completed)?.id || null
+  )
+  const [ballots, setBallots] = useState<Ballot[]>(userBallots)
+  const [pollAnswers, setPollAnswers] = useState<PollAnswer[]>(userPollAnswers)
+  const [profileModalUser, setProfileModalUser] = useState<any | null>(null)
+
+  const supabase = createClient()
+
+  // Sign out
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  // Real-time leaderboard subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('leaderboard-updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles' },
+        (payload) => {
+          setLeaderboard(prev => {
+            const updated = prev.map(p =>
+              p.id === payload.new.id ? { ...p, ...payload.new } : p
+            )
+            return [...updated].sort((a, b) => b.total_points - a.total_points)
+          })
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase])
+
+  const selectedMatch = matches.find(m => m.id === selectedMatchId)
+  const userBallotForMatch = ballots.find(b => b.match_id === selectedMatchId)
+  const userPollAnswersForMatch = pollAnswers.filter(pa =>
+    selectedMatch?.custom_polls?.some((cp: any) => cp.id === pa.poll_id)
+  )
+
+  const upcomingMatches = matches.filter(m => !m.is_completed)
+  const completedMatches = matches.filter(m => m.is_completed)
+
+  const handleBallotSaved = (ballot: Ballot) => {
+    setBallots(prev => {
+      const exists = prev.findIndex(b => b.id === ballot.id)
+      if (exists >= 0) {
+        const updated = [...prev]
+        updated[exists] = ballot
+        return updated
+      }
+      return [...prev, ballot]
+    })
+  }
+
+  const handlePollAnswerSaved = (answer: PollAnswer) => {
+    setPollAnswers(prev => {
+      const exists = prev.findIndex(pa => pa.id === answer.id)
+      if (exists >= 0) {
+        const updated = [...prev]
+        updated[exists] = answer
+        return updated
+      }
+      return [...prev, answer]
+    })
+  }
+
+  return (
+    <div className="dashboard-layout">
+      {/* ─── SIDEBAR ─── */}
+      <aside className="dashboard-sidebar">
+        {/* Logo */}
+        <div className="sidebar-logo">
+          <div className="sidebar-logo-icon">
+            <Trophy size={20} color="#0A0C10" strokeWidth={2.5} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span className="sidebar-logo-text font-display">CupHub</span>
+            <span className="sidebar-logo-sub">Fantasy Engine</span>
+          </div>
+          <ThemeToggle />
+        </div>
+
+        {/* Profile */}
+        <div className="sidebar-profile">
+          <div className="sidebar-avatar">{profile.avatar_letter}</div>
+          <div className="sidebar-profile-info">
+            <span className="sidebar-profile-name">{profile.display_name}</span>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 7px' }}>
+                {profile.total_points} pts
+              </span>
+              {profile.is_admin && (
+                <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 7px' }}>
+                  <Shield size={9} /> Admin
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="divider" style={{ margin: '0' }} />
+
+        {/* Nav Tabs */}
+        <nav className="sidebar-nav">
+          {[
+            { id: 'matches', label: 'Match Ballots', icon: <Zap size={16} /> },
+            { id: 'leaderboard', label: 'Standings', icon: <BarChart2 size={16} /> },
+            ...(profile.is_admin ? [{ id: 'admin', label: 'Admin Center', icon: <Shield size={16} /> }] : []),
+          ].map(tab => (
+            <button
+              key={tab.id}
+              id={`tab-${tab.id}`}
+              className={`sidebar-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id as any)}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Mini Leaderboard */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <p className="form-label" style={{ padding: '0 8px', marginBottom: '10px' }}>
+            Top Scorers
+          </p>
+          {leaderboard.slice(0, 5).map((entry, i) => (
+            <button
+              key={entry.id}
+              className="lb-row"
+              style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+              onClick={() => setProfileModalUser(entry)}
+            >
+              <span className={`lb-rank lb-rank-${i + 1}`}>{i + 1}</span>
+              <div className="lb-avatar" style={{ fontSize: '13px' }}>{entry.avatar_letter}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {entry.display_name}
+                  {entry.id === profile.id && <span style={{ color: 'var(--cup-gold)', marginLeft: '4px' }}>·You</span>}
+                </p>
+              </div>
+              <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                {entry.total_points}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Sign Out */}
+        <button className="btn btn-ghost btn-sm" id="signout-btn" onClick={handleSignOut} style={{ width: '100%' }}>
+          <LogOut size={14} /> Sign Out
+        </button>
+      </aside>
+
+      {/* ─── MAIN CONTENT ─── */}
+      <main className="dashboard-main">
+        {activeTab === 'matches' && (
+          <MatchesTab
+            matches={matches}
+            selectedMatchId={selectedMatchId}
+            setSelectedMatchId={setSelectedMatchId}
+            selectedMatch={selectedMatch}
+            profile={profile}
+            userBallot={userBallotForMatch}
+            userPollAnswers={userPollAnswersForMatch}
+            allBallots={ballots}
+            onBallotSaved={handleBallotSaved}
+            onPollAnswerSaved={handlePollAnswerSaved}
+          />
+        )}
+
+        {activeTab === 'leaderboard' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="bento-card" style={{ padding: '16px 20px', background: 'rgba(255, 215, 0, 0.05)', borderColor: 'rgba(255, 215, 0, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '0 0 12px 0' }}>
+                <Zap size={18} color="var(--cup-gold)" />
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--cup-gold)', margin: 0 }}>Scoring Rules</h3>
+              </div>
+              <ul style={{ fontSize: '13px', color: 'var(--text-secondary)', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <li><strong>Exact Scoreline:</strong> +5 pts <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(exclusive — no outcome double-dip)</span></li>
+                <li><strong>Correct Match Outcome</strong> (Win/Draw/Loss, wrong score): +2 pts</li>
+                <li><strong>Home Team Goals Match:</strong> +1 pt <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(consolation if you nail a team&apos;s goals)</span></li>
+                <li><strong>Away Team Goals Match:</strong> +1 pt</li>
+                <li><strong>Correct Top Match Scorer:</strong> +3 pts</li>
+                <li><strong>Bonus MCQ Polls:</strong> +2 pts per correct answer</li>
+              </ul>
+              <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--border-default)' }}>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cup-gold)', marginBottom: '4px' }}>🎯 Accuracy Rate Bonus</p>
+                <ul style={{ fontSize: '12px', color: 'var(--text-muted)', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <li><strong>Tier 1</strong> (80%–100% accuracy): +5 bonus pts</li>
+                  <li><strong>Tier 2</strong> (50%–79% accuracy): +2 bonus pts</li>
+                  <li><strong>Tier 3</strong> (&lt;50% accuracy): +0 bonus pts</li>
+                </ul>
+              </div>
+            </div>
+            <Leaderboard
+              entries={leaderboard}
+              currentUserId={profile.id}
+              onProfileClick={setProfileModalUser}
+            />
+          </div>
+        )}
+
+        {activeTab === 'admin' && profile.is_admin && (
+          <AdminPanel
+            matches={matches}
+            onDataChanged={() => window.location.reload()}
+          />
+        )}
+      </main>
+
+      {/* Profile Modal */}
+      {profileModalUser && (
+        <ProfileModal
+          user={profileModalUser}
+          currentUserId={profile.id}
+          allBallots={ballots}
+          matches={matches}
+          onClose={() => setProfileModalUser(null)}
+        />
+      )}
+
+      <style jsx>{`
+        .dashboard-layout {
+          display: flex;
+          min-height: 100vh;
+          background: var(--surface-base);
+        }
+        .dashboard-sidebar {
+          width: 260px;
+          flex-shrink: 0;
+          background: var(--surface-card);
+          border-right: 1px solid var(--border-subtle);
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding: 20px 14px;
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          overflow-y: auto;
+        }
+        .sidebar-logo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 4px 4px 0;
+        }
+        .sidebar-logo-icon {
+          width: 38px; height: 38px;
+          background: var(--cup-gold);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .sidebar-logo-text {
+          font-size: 20px;
+          color: var(--text-primary);
+          display: block;
+          line-height: 1;
+        }
+        .sidebar-logo-sub {
+          font-size: 10px;
+          color: var(--text-muted);
+          display: block;
+          letter-spacing: 0.05em;
+        }
+        .sidebar-profile {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: var(--surface-raised);
+          border: 1px solid var(--border-subtle);
+          border-radius: 12px;
+          padding: 10px 12px;
+        }
+        .sidebar-avatar {
+          width: 38px; height: 38px;
+          background: var(--cup-gold);
+          color: #0A0C10;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          font-weight: 800;
+          flex-shrink: 0;
+        }
+        .sidebar-profile-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .sidebar-profile-name {
+          font-size: 13px;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sidebar-nav {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .sidebar-nav-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid transparent;
+          background: none;
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+          width: 100%;
+        }
+        .sidebar-nav-item:hover {
+          background: var(--surface-raised);
+          color: var(--text-primary);
+        }
+        .sidebar-nav-item.active {
+          background: rgba(245,200,66,0.1);
+          color: var(--cup-gold);
+          border-color: rgba(245,200,66,0.25);
+        }
+        .dashboard-main {
+          flex: 1;
+          min-width: 0;
+          padding: 28px;
+          overflow-y: auto;
+        }
+        @media (max-width: 768px) {
+          .dashboard-layout { flex-direction: column; }
+          .dashboard-sidebar { width: 100%; height: auto; position: relative; }
+          .dashboard-main { padding: 16px; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ─── MATCHES TAB ───────────────────────────────────────────
+function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, selectedMatch, profile, userBallot, userPollAnswers, allBallots, onBallotSaved, onPollAnswerSaved }: any) {
+  const [showCompleted, setShowCompleted] = useState(false)
+  const upcoming = matches.filter((m: any) => !m.is_completed)
+  const completed = matches.filter((m: any) => m.is_completed)
+
+  return (
+    <div className="matches-tab">
+      {/* Match Selector */}
+      <div className="matches-selector">
+        <div className="matches-selector-header">
+          <h2 className="matches-section-title">Match Ballots</h2>
+          <span className="badge badge-green">{upcoming.length} Upcoming</span>
+        </div>
+
+        <div className="match-list">
+          {upcoming.map((match: any) => (
+            <MatchSelectorRow
+              key={match.id}
+              match={match}
+              isSelected={selectedMatchId === match.id}
+              onSelect={() => setSelectedMatchId(match.id)}
+              hasBallot={allBallots.some((b: any) => b.match_id === match.id)}
+            />
+          ))}
+
+          {completed.length > 0 && (
+            <>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ width: '100%', marginTop: '8px' }}
+                onClick={() => setShowCompleted(!showCompleted)}
+                id="toggle-completed-btn"
+              >
+                {showCompleted ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {completed.length} Completed Matches
+              </button>
+              {showCompleted && completed.map((match: any) => (
+                <MatchSelectorRow
+                  key={match.id}
+                  match={match}
+                  isSelected={selectedMatchId === match.id}
+                  onSelect={() => setSelectedMatchId(match.id)}
+                  hasBallot={allBallots.some((b: any) => b.match_id === match.id)}
+                />
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Ballot Card */}
+      <div className="ballot-area">
+        {selectedMatch ? (
+          <BallotCard
+            match={selectedMatch}
+            profile={profile}
+            existingBallot={userBallot}
+            existingPollAnswers={userPollAnswers}
+            allBallots={allBallots}
+            onBallotSaved={onBallotSaved}
+            onPollAnswerSaved={onPollAnswerSaved}
+          />
+        ) : (
+          <div className="bento-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '16px' }}>
+            <Trophy size={48} color="var(--text-muted)" />
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+              Select a match from the left to place your prediction
+            </p>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .matches-tab {
+          display: grid;
+          grid-template-columns: 300px 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        .matches-selector { display: flex; flex-direction: column; gap: 12px; }
+        .matches-selector-header { display: flex; align-items: center; justify-content: space-between; }
+        .matches-section-title { font-size: 18px; font-weight: 800; }
+        .match-list { display: flex; flex-direction: column; gap: 8px; }
+        .ballot-area { }
+        @media (max-width: 900px) {
+          .matches-tab { grid-template-columns: 1fr; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+function MatchSelectorRow({ match, isSelected, onSelect, hasBallot }: any) {
+  const kickoff = new Date(match.kickoff_time)
+  const [isLocked, setIsLocked] = useState(false)
+  const isCompleted = match.is_completed
+
+  useEffect(() => {
+    setIsLocked(new Date() >= kickoff)
+  }, [match.kickoff_time])
+
+  return (
+    <button
+      className={`match-selector-row ${isSelected ? 'active' : ''}`}
+      onClick={onSelect}
+    >
+      <div className="match-selector-teams">
+        <span style={{ fontSize: '14px' }}>{match.home_team?.flag_emoji} {match.home_team?.name}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>
+          {isCompleted ? `${match.home_score} - ${match.away_score}` : 'vs'}
+        </span>
+        <span style={{ fontSize: '14px' }}>{match.away_team?.flag_emoji} {match.away_team?.name}</span>
+      </div>
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {kickoff.toLocaleDateString()} · {kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+        {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}
+        {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
+        {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓ Saved</span>}
+      </div>
+    </button>
+  )
+}
+
+// ─── PROFILE MODAL ─────────────────────────────────────────
+function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any) {
+  const userBallots = allBallots.filter((b: any) => b.user_id === user.id);
+  const settledBallots = userBallots.filter((b: any) => {
+    const m = matches.find((m: any) => m.id === b.match_id);
+    return m && m.is_completed;
+  }).sort((a: any, b: any) => {
+    const ma = matches.find((m: any) => m.id === a.match_id);
+    const mb = matches.find((m: any) => m.id === b.match_id);
+    return new Date(mb.kickoff_time).getTime() - new Date(ma.kickoff_time).getTime();
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+          <div className="lb-avatar" style={{ width: '52px', height: '52px', fontSize: '22px', background: 'var(--cup-gold)', color: '#0A0C10', borderColor: 'var(--cup-gold)' }}>
+            {user.avatar_letter}
+          </div>
+          <div>
+            <h2 style={{ fontSize: '20px', fontWeight: 800 }}>{user.display_name}</h2>
+            {user.id === currentUserId && <span className="badge badge-gold">You</span>}
+            {user.is_admin && <span className="badge badge-blue" style={{ marginLeft: '6px' }}><Shield size={9} /> Admin</span>}
+          </div>
+          <button className="btn btn-ghost btn-sm btn-icon" style={{ marginLeft: 'auto' }} onClick={onClose}>✕</button>
+        </div>
+        <div className="bento-card" style={{ textAlign: 'center', padding: '20px', marginBottom: '20px' }}>
+          <p style={{ fontSize: '40px', fontWeight: 900, color: 'var(--cup-gold)' }}>{user.total_points}</p>
+          <p className="text-secondary" style={{ fontSize: '13px' }}>Total Fantasy Points</p>
+        </div>
+
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>Prediction History</h3>
+          {settledBallots.length === 0 ? (
+            <p className="text-muted" style={{ textAlign: 'center', marginTop: '20px', fontSize: '13px' }}>
+              No completed predictions yet.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {settledBallots.map((ballot: any) => {
+                const match = matches.find((m: any) => m.id === ballot.match_id);
+                return (
+                  <div key={ballot.id} style={{ padding: '14px', background: 'var(--surface-base)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          {match?.home_team?.flag_emoji} {match?.home_team?.name} vs {match?.away_team?.name} {match?.away_team?.flag_emoji}
+                        </span>
+                        <span style={{ fontSize: '14px', fontWeight: 700 }}>
+                          Predicted: {ballot.predicted_home_score} - {ballot.predicted_away_score}
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '8px', fontSize: '12px' }}>
+                            (Actual: {match?.home_score} - {match?.away_score})
+                          </span>
+                        </span>
+                      </div>
+                      <div className="badge badge-gold" style={{ fontSize: '13px', padding: '4px 12px', fontWeight: 800 }}>
+                        +{ballot.points_earned || 0}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {(ballot.score_points_earned || 0) > 0 && (
+                        <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          {ballot.score_points_earned === 5 ? 'Exact +5' : 'Outcome +2'}
+                        </span>
+                      )}
+                      {(ballot.team_points_earned || 0) > 0 && (
+                        <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          Team Goals +{ballot.team_points_earned}
+                        </span>
+                      )}
+                      {ballot.accuracy_rate > 0 && (
+                        <span className="badge badge-gray" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          {ballot.accuracy_rate.toFixed(0)}% acc
+                        </span>
+                      )}
+                      {(ballot.accuracy_bonus_earned || 0) > 0 && (
+                        <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          Bonus +{ballot.accuracy_bonus_earned}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

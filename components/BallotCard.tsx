@@ -1,0 +1,520 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import { Match, Ballot, PollAnswer, Profile, CustomPoll } from '@/types/database'
+import { Clock, Save, Lock, Eye, ChevronDown, ChevronUp, Loader2, CheckCircle } from 'lucide-react'
+
+interface Props {
+  match: any
+  profile: Profile
+  existingBallot?: Ballot
+  existingPollAnswers?: PollAnswer[]
+  allBallots?: any[]
+  onBallotSaved: (ballot: Ballot) => void
+  onPollAnswerSaved: (answer: PollAnswer) => void
+}
+
+export default function BallotCard({
+  match, profile, existingBallot, existingPollAnswers = [],
+  allBallots = [],
+  onBallotSaved, onPollAnswerSaved
+}: Props) {
+  const supabase = createClient()
+  const [homeScore, setHomeScore] = useState<string>(existingBallot?.predicted_home_score?.toString() ?? '')
+  const [awayScore, setAwayScore] = useState<string>(existingBallot?.predicted_away_score?.toString() ?? '')
+  const [topScorerId, setTopScorerId] = useState<string>(existingBallot?.predicted_top_scorer_id?.toString() ?? '')
+  const [pollSelections, setPollSelections] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>(() => {
+    const init: Record<number, 'A' | 'B' | 'C' | 'D'> = {}
+    existingPollAnswers.forEach(pa => { init[pa.poll_id] = pa.selected_option as any })
+    return init
+  })
+  const [players, setPlayers] = useState<any[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0 })
+  const [showReveal, setShowReveal] = useState(false)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const kickoff = new Date(match.kickoff_time)
+  const [isLocked, setIsLocked] = useState(false)
+  const isCompleted = match.is_completed
+
+  // Hydration-safe: compute isLocked only on the client after mount
+  useEffect(() => {
+    setIsLocked(new Date() >= kickoff)
+  }, [match.kickoff_time])
+
+  // Load squad players for both teams
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      const { data } = await supabase
+        .from('players')
+        .select('*, teams(*)')
+        .in('team_id', [match.home_team_id, match.away_team_id])
+        .order('name')
+      setPlayers(data || [])
+    }
+    fetchPlayers()
+  }, [match.id])
+
+  // Countdown timer
+  useEffect(() => {
+    const tick = () => {
+      const diff = kickoff.getTime() - Date.now()
+      if (diff <= 0) {
+        setCountdown({ d: 0, h: 0, m: 0, s: 0 })
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        return
+      }
+      const d = Math.floor(diff / 86400000)
+      const h = Math.floor((diff % 86400000) / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setCountdown({ d, h, m, s })
+    }
+    tick()
+    if (!isLocked) {
+      intervalRef.current = setInterval(tick, 1000)
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [match.kickoff_time])
+
+  const handleSave = async () => {
+    if (isLocked) return
+    setSaving(true)
+    setError(null)
+
+    try {
+      // Upsert ballot
+      const ballotPayload = {
+        user_id: profile.id,
+        match_id: match.id,
+        predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
+        predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
+        predicted_top_scorer_id: topScorerId ? parseInt(topScorerId) : null,
+      }
+
+      const { data: savedBallot, error: ballotError } = existingBallot
+        ? await supabase.from('ballots').update(ballotPayload).eq('id', existingBallot.id).select().single()
+        : await supabase.from('ballots').insert(ballotPayload).select().single()
+
+      if (ballotError) throw ballotError
+      if (savedBallot) onBallotSaved(savedBallot as Ballot)
+
+      // Upsert poll answers
+      for (const [pollId, selected] of Object.entries(pollSelections)) {
+        const existing = existingPollAnswers.find(pa => pa.poll_id === parseInt(pollId))
+        const pollPayload = {
+          user_id: profile.id,
+          poll_id: parseInt(pollId),
+          selected_option: selected,
+        }
+        const { data: savedAnswer, error: pollError } = existing
+          ? await supabase.from('poll_answers').update(pollPayload).eq('id', existing.id).select().single()
+          : await supabase.from('poll_answers').insert(pollPayload).select().single()
+
+        if (pollError) throw pollError
+        if (savedAnswer) onPollAnswerSaved(savedAnswer as PollAnswer)
+      }
+
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const homePlayers = players.filter(p => p.team_id === match.home_team_id)
+  const awayPlayers = players.filter(p => p.team_id === match.away_team_id)
+
+  return (
+    <div className="bento-card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Match Header */}
+      <div className="ballot-header">
+        <div className="ballot-match-info">
+          <span className="badge badge-gray">{match.stage}</span>
+          {isCompleted && <span className="badge badge-gray">Full Time</span>}
+          {isLocked && !isCompleted && (
+            <span className="badge badge-red">
+              <span className="status-dot status-live" style={{ width: '6px', height: '6px' }} />
+              Locked
+            </span>
+          )}
+          {!isLocked && <span className="badge badge-green">Open</span>}
+        </div>
+
+        <div className="ballot-scoreline">
+          <div className="ballot-team">
+            <span className="ballot-flag">{match.home_team?.flag_emoji}</span>
+            <span className="ballot-team-name">{match.home_team?.name}</span>
+          </div>
+          <div className="ballot-vs-block">
+            {isCompleted ? (
+              <span className="ballot-final-score">
+                {match.home_score} – {match.away_score}
+              </span>
+            ) : (
+              <span className="ballot-vs-text">VS</span>
+            )}
+          </div>
+          <div className="ballot-team ballot-team-away">
+            <span className="ballot-flag">{match.away_team?.flag_emoji}</span>
+            <span className="ballot-team-name">{match.away_team?.name}</span>
+          </div>
+        </div>
+
+        {/* Countdown */}
+        {!isLocked && (
+          <div className="ballot-countdown">
+            <Clock size={13} color="var(--text-muted)" />
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Locks in</span>
+            {[
+              { val: countdown.d, label: 'Days' },
+              { val: countdown.h, label: 'Hrs' },
+              { val: countdown.m, label: 'Min' },
+              { val: countdown.s, label: 'Sec' },
+            ].map(({ val, label }) => (
+              <div key={label} className="countdown-block">
+                <span className="countdown-number">{String(val).padStart(2, '0')}</span>
+                <span className="countdown-label">{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isLocked && (
+        <div className="ballot-locked-banner">
+          <Lock size={14} />
+          {isCompleted
+            ? `Final Score: ${match.home_team?.name} ${match.home_score} – ${match.away_score} ${match.away_team?.name}`
+            : 'Match has kicked off — predictions are now locked.'}
+        </div>
+      )}
+
+      {/* ── PREDICTION FORM ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+        {/* Score Prediction */}
+        <div className="ballot-section">
+          <div className="slant-block" style={{ alignSelf: 'flex-start', padding: '4px 12px 4px 0' }}>
+            <p className="ballot-section-title hud-header" style={{ margin: 0 }}>
+              <span className="ballot-section-num">1</span>
+              Scoreline Prediction
+            </p>
+          </div>
+          <div className="score-prediction-row">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '18px' }}>{match.home_team?.flag_emoji}</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '80px', textTransform: 'uppercase' }}>
+                {match.home_team?.name}
+              </span>
+              <input
+                id={`home-score-${match.id}`}
+                type="number"
+                min={0}
+                max={20}
+                className="score-input"
+                value={homeScore}
+                onChange={e => setHomeScore(e.target.value)}
+                disabled={isLocked}
+                placeholder="0"
+              />
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-muted)', paddingTop: '36px' }}>–</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '18px' }}>{match.away_team?.flag_emoji}</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '80px' }}>
+                {match.away_team?.name}
+              </span>
+              <input
+                id={`away-score-${match.id}`}
+                type="number"
+                min={0}
+                max={20}
+                className="score-input"
+                value={awayScore}
+                onChange={e => setAwayScore(e.target.value)}
+                disabled={isLocked}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Top Scorer Prop */}
+        <div className="ballot-section">
+          <div className="slant-block" style={{ alignSelf: 'flex-start', padding: '4px 12px 4px 0' }}>
+            <p className="ballot-section-title hud-header" style={{ margin: 0 }}>
+              <span className="ballot-section-num">2</span>
+              Top Match Scorer
+            </p>
+          </div>
+          {isLocked && isCompleted && match.top_scorer ? (
+            <div className="ballot-result-reveal">
+              <span>⚽ Official Top Scorer: <strong>{match.top_scorer.name}</strong></span>
+              {existingBallot?.predicted_top_scorer_id === match.top_scorer_id
+                ? <span className="badge badge-green">+3 pts ✓</span>
+                : <span className="badge badge-gray">0 pts</span>}
+            </div>
+          ) : (
+            <select
+              id={`top-scorer-${match.id}`}
+              className="form-select"
+              value={topScorerId}
+              onChange={e => setTopScorerId(e.target.value)}
+              disabled={isLocked || players.length === 0}
+            >
+              <option value="">Select a player...</option>
+              {homePlayers.length > 0 && (
+                <optgroup label={`${match.home_team?.flag_emoji} ${match.home_team?.name}`}>
+                  {homePlayers.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </optgroup>
+              )}
+              {awayPlayers.length > 0 && (
+                <optgroup label={`${match.away_team?.flag_emoji} ${match.away_team?.name}`}>
+                  {awayPlayers.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          )}
+        </div>
+
+        {/* Custom Polls */}
+        {match.custom_polls && match.custom_polls.length > 0 && (
+          <div className="ballot-section">
+            <div className="slant-block" style={{ alignSelf: 'flex-start', padding: '4px 12px 4px 0' }}>
+              <p className="ballot-section-title hud-header" style={{ margin: 0 }}>
+                <span className="ballot-section-num">3</span>
+                Bonus Predictions
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {match.custom_polls.map((poll: CustomPoll, idx: number) => (
+                <PollQuestion
+                  key={poll.id}
+                  poll={poll}
+                  index={idx}
+                  selected={pollSelections[poll.id]}
+                  isLocked={isLocked}
+                  isCompleted={isCompleted}
+                  onSelect={opt => setPollSelections(prev => ({ ...prev, [poll.id]: opt }))}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Save / Error */}
+      {!isLocked && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {error && (
+            <div className="login-error" style={{ borderRadius: '10px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--cup-red)' }}>{error}</span>
+            </div>
+          )}
+          <button
+            id={`save-ballot-${match.id}`}
+            className="btn btn-primary btn-lg"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ width: '100%' }}
+          >
+            {saving ? (
+              <><Loader2 size={16} style={{ animation: 'spin 0.7s linear infinite' }} /> Saving...</>
+            ) : saved ? (
+              <><CheckCircle size={16} /> Ballot Saved!</>
+            ) : (
+              <><Save size={16} /> {existingBallot ? 'Update Ballot' : 'Submit Ballot'}</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Whistleblower Reveal */}
+      {isLocked && (
+        <div style={{ marginTop: '16px', paddingTop: '20px', borderTop: '2px dashed var(--border-default)' }}>
+          <div className="slant-block" style={{ alignSelf: 'flex-start', padding: '4px 12px 4px 0', marginBottom: '16px' }}>
+            <p className="ballot-section-title hud-header" style={{ margin: 0, color: 'var(--cup-red)' }}>
+              <Eye size={16} /> Whistleblower Reveal
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {allBallots.filter(b => b.match_id === match.id).length === 0 ? (
+              <p className="text-muted" style={{ fontSize: '13px', textAlign: 'center' }}>No predictions submitted for this match.</p>
+            ) : (
+              allBallots.filter(b => b.match_id === match.id).map(b => (
+                <div key={b.id} style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="lb-avatar" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
+                        {b.profiles?.avatar_letter || '?'}
+                      </div>
+                      <span style={{ fontSize: '14px', fontWeight: 700 }}>
+                        {b.profiles?.display_name || 'Unknown'}
+                        {b.user_id === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px' }}>
+                        {b.predicted_home_score} - {b.predicted_away_score}
+                      </span>
+                      {isCompleted && (
+                        <span className="badge badge-gold" style={{ fontSize: '12px', padding: '3px 10px', fontWeight: 800 }}>
+                          +{b.points_earned || 0}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {isCompleted && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', paddingLeft: '42px' }}>
+                      {(b.score_points_earned || 0) > 0 && (
+                        <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          {b.score_points_earned === 5 ? 'Exact' : 'Outcome'}
+                        </span>
+                      )}
+                      {(b.team_points_earned || 0) > 0 && (
+                        <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          Team +{b.team_points_earned}
+                        </span>
+                      )}
+                      {(b.accuracy_bonus_earned || 0) > 0 && (
+                        <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          {b.accuracy_rate?.toFixed(0)}% → Bonus +{b.accuracy_bonus_earned}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .ballot-header { display: flex; flex-direction: column; gap: 16px; }
+        .ballot-match-info { display: flex; gap: 8px; align-items: center; }
+        .ballot-scoreline {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px 0;
+        }
+        .ballot-team { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+        .ballot-team-away { }
+        .ballot-flag { font-size: 32px; }
+        .ballot-team-name { font-size: 15px; font-weight: 700; text-align: center; }
+        .ballot-vs-block { display: flex; align-items: center; justify-content: center; }
+        .ballot-vs-text { font-family: 'Bebas Neue', cursive; font-size: 28px; color: var(--text-muted); }
+        .ballot-final-score { font-family: 'Bebas Neue', cursive; font-size: 36px; color: var(--cup-gold); letter-spacing: 0.05em; }
+        .ballot-countdown { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ballot-locked-banner {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
+          background: rgba(255,69,96,0.08);
+          border: 1px solid rgba(255,69,96,0.2);
+          border-radius: 10px;
+          font-size: 13px;
+          color: var(--cup-red);
+          font-weight: 500;
+        }
+        .ballot-section { display: flex; flex-direction: column; gap: 12px; }
+        .ballot-section-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+        .ballot-section-num {
+          width: 22px; height: 22px;
+          background: var(--cup-gold);
+          color: #0A0C10;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 800;
+          flex-shrink: 0;
+        }
+        .score-prediction-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          gap: 24px;
+        }
+        .ballot-result-reveal {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--surface-raised);
+          border: 1px solid var(--border-default);
+          border-radius: 10px;
+          padding: 12px 16px;
+          font-size: 14px;
+          gap: 12px;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ─── MCQ POLL QUESTION COMPONENT ────────────────────────────────
+function PollQuestion({ poll, index, selected, isLocked, isCompleted, onSelect }: {
+  poll: CustomPoll
+  index: number
+  selected?: 'A' | 'B' | 'C' | 'D'
+  isLocked: boolean
+  isCompleted: boolean
+  onSelect: (opt: 'A' | 'B' | 'C' | 'D') => void
+}) {
+  const options: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D']
+  const optionLabels = { A: poll.option_a, B: poll.option_b, C: poll.option_c, D: poll.option_d }
+
+  const getOptionClass = (opt: 'A' | 'B' | 'C' | 'D') => {
+    if (isCompleted && poll.correct_option) {
+      if (opt === poll.correct_option) return 'mcq-option correct'
+      if (opt === selected && opt !== poll.correct_option) return 'mcq-option incorrect'
+      return 'mcq-option'
+    }
+    if (opt === selected) return 'mcq-option selected'
+    return 'mcq-option'
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+        Q{index + 1}. {poll.question}
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        {options.map(opt => (
+          <button
+            key={opt}
+            id={`poll-${poll.id}-opt-${opt}`}
+            className={getOptionClass(opt)}
+            onClick={() => !isLocked && onSelect(opt)}
+            disabled={isLocked}
+          >
+            <span className="mcq-key">{opt}</span>
+            <span style={{ fontSize: '13px' }}>{optionLabels[opt]}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
