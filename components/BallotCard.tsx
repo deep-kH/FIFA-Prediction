@@ -360,7 +360,7 @@ export default function BallotCard({
                   <span style={{ fontSize: '12px', fontWeight: 800, color: activeCard === 'MULTIPLIER' ? '#8A2BE2' : 'var(--text-primary)' }}>Halal Ball</span>
                 </div>
                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                  Double points if exact score. Half points if missed.
+                  Double points if accuracy ≥ 80%. Multiplies by 0.75x if missed.
                 </p>
               </button>
             )}
@@ -459,7 +459,7 @@ export default function BallotCard({
                         </span>
                         {isCompleted && (
                           <span className="badge badge-gold" style={{ fontSize: '12px', padding: '3px 10px', fontWeight: 800 }}>
-                            +{b.points_earned || 0}
+                            +{Number(b.points_earned || 0).toFixed(2)}
                           </span>
                         )}
                         <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>

@@ -1,0 +1,194 @@
+-- =============================================
+-- Migration: Decimal Points & Gamification Overhaul
+-- =============================================
+
+-- 1. Alter Columns to support decimals
+ALTER TABLE public.profiles ALTER COLUMN total_points TYPE numeric(8,2);
+
+ALTER TABLE public.ballots ALTER COLUMN points_earned TYPE numeric(8,2);
+ALTER TABLE public.ballots ALTER COLUMN score_points_earned TYPE numeric(8,2);
+ALTER TABLE public.ballots ALTER COLUMN team_points_earned TYPE numeric(8,2);
+ALTER TABLE public.ballots ALTER COLUMN accuracy_bonus_earned TYPE numeric(8,2);
+
+ALTER TABLE public.poll_answers ALTER COLUMN points_earned TYPE numeric(8,2);
+
+-- 2. Update the settle_match function with new logic
+CREATE OR REPLACE FUNCTION public.settle_match(p_match_id integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_match              public.matches%rowtype;
+  v_ballot             public.ballots%rowtype;
+  v_score_pts          numeric(8,2);
+  v_team_pts           numeric(8,2);
+  v_scorer_pts         numeric(8,2);
+  v_mcq_pts            numeric(8,2);
+  v_total_ballot_pts   numeric(8,2);
+  v_outcome_actual     text;
+  v_outcome_pred       text;
+  v_slots_hit          integer;
+  v_slots_total        integer;
+  v_accuracy           numeric(5,2);
+  v_accuracy_bonus     numeric(8,2);
+  v_num_polls          integer;
+BEGIN
+  -- Fetch match details
+  SELECT * INTO v_match FROM public.matches WHERE id = p_match_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Match % not found', p_match_id; END IF;
+  IF NOT v_match.is_completed THEN RAISE EXCEPTION 'Match % is not marked as completed yet', p_match_id; END IF;
+
+  SELECT count(*) INTO v_num_polls FROM public.custom_polls WHERE match_id = p_match_id;
+
+  IF v_match.home_score > v_match.away_score THEN
+    v_outcome_actual := 'HOME';
+  ELSIF v_match.away_score > v_match.home_score THEN
+    v_outcome_actual := 'AWAY';
+  ELSE
+    v_outcome_actual := 'DRAW';
+  END IF;
+
+  -- Loop through ballots
+  FOR v_ballot IN SELECT * FROM public.ballots WHERE match_id = p_match_id LOOP
+    v_score_pts  := 0;
+    v_team_pts   := 0;
+    v_scorer_pts := 0;
+    v_mcq_pts    := 0;
+    v_slots_hit  := 0;
+
+    -- RULE 1 & 2: Exact Scoreline vs Outcome Accuracy
+    IF v_ballot.predicted_home_score IS NOT NULL AND v_ballot.predicted_away_score IS NOT NULL THEN
+      IF v_ballot.predicted_home_score = v_match.home_score AND v_ballot.predicted_away_score = v_match.away_score THEN
+        v_score_pts := 5.0;
+        v_slots_hit := v_slots_hit + 1;
+      ELSE
+        IF v_ballot.predicted_home_score > v_ballot.predicted_away_score THEN
+          v_outcome_pred := 'HOME';
+        ELSIF v_ballot.predicted_away_score > v_ballot.predicted_home_score THEN
+          v_outcome_pred := 'AWAY';
+        ELSE
+          v_outcome_pred := 'DRAW';
+        END IF;
+
+        IF v_outcome_pred = v_outcome_actual THEN
+          v_score_pts := 2.0;
+          v_slots_hit := v_slots_hit + 1;
+        END IF;
+      END IF;
+
+      -- RULE 3: Team-Specific Goals
+      IF v_ballot.predicted_home_score = v_match.home_score THEN
+        v_team_pts := v_team_pts + 1.0;
+        v_slots_hit := v_slots_hit + 1;
+      END IF;
+      IF v_ballot.predicted_away_score = v_match.away_score THEN
+        v_team_pts := v_team_pts + 1.0;
+        v_slots_hit := v_slots_hit + 1;
+      END IF;
+    END IF;
+
+    -- RULE 4: Top Match Scorer
+    IF v_ballot.predicted_top_scorer_id IS NOT NULL AND v_match.top_scorer_id IS NOT NULL AND v_ballot.predicted_top_scorer_id = v_match.top_scorer_id THEN
+      v_scorer_pts := 3.0;
+      v_slots_hit := v_slots_hit + 1;
+    END IF;
+
+    -- RULE 5: MCQ Polls
+    UPDATE public.poll_answers pa
+    SET points_earned = CASE WHEN pa.selected_option = cp.correct_option THEN 2.0 ELSE 0.0 END
+    FROM public.custom_polls cp
+    WHERE pa.poll_id = cp.id AND cp.match_id = p_match_id AND pa.user_id = v_ballot.user_id;
+
+    SELECT coalesce(sum(CASE WHEN pa.selected_option = cp.correct_option THEN 1 ELSE 0 END), 0)
+    INTO v_mcq_pts
+    FROM public.poll_answers pa
+    JOIN public.custom_polls cp ON cp.id = pa.poll_id
+    WHERE cp.match_id = p_match_id AND pa.user_id = v_ballot.user_id;
+
+    v_slots_hit := v_slots_hit + v_mcq_pts;
+    v_mcq_pts := v_mcq_pts * 2.0;
+
+    -- RULE 6: Accuracy Bonus
+    v_slots_total := 4 + v_num_polls;
+    IF v_slots_total > 0 THEN
+      v_accuracy := (v_slots_hit::numeric / v_slots_total::numeric) * 100.0;
+    ELSE
+      v_accuracy := 0.0;
+    END IF;
+
+    IF v_accuracy >= 80 THEN
+      v_accuracy_bonus := 5.0;
+    ELSIF v_accuracy >= 50 THEN
+      v_accuracy_bonus := 2.0;
+    ELSE
+      v_accuracy_bonus := 0.0;
+    END IF;
+
+    -- BASE TOTAL
+    v_total_ballot_pts := v_score_pts + v_team_pts + v_scorer_pts + v_mcq_pts + v_accuracy_bonus;
+
+    -- ─── GAMIFICATION WILDCARDS ───
+    IF v_ballot.played_card = 'MULTIPLIER' THEN
+      IF v_accuracy >= 80 THEN
+        -- Halal Ball Win: 2.0x Multiplier
+        v_total_ballot_pts := v_total_ballot_pts * 2.0;
+      ELSE
+        -- Halal Ball Penalty: 0.75x Multiplier
+        v_total_ballot_pts := v_total_ballot_pts * 0.75;
+      END IF;
+    ELSIF v_ballot.played_card = 'SAFETY_NET' THEN
+      IF v_total_ballot_pts = 0 THEN
+        -- Safety Net Override: 50% of Absolute Maximum Possible Points
+        v_total_ballot_pts := (15.0 + (v_num_polls * 2.0)) / 2.0;
+      END IF;
+    END IF;
+
+    -- UPDATE BALLOT
+    UPDATE public.ballots
+    SET points_earned = round(v_total_ballot_pts, 2),
+        score_points_earned = v_score_pts,
+        team_points_earned = v_team_pts,
+        accuracy_rate = v_accuracy,
+        accuracy_bonus_earned = v_accuracy_bonus
+    WHERE id = v_ballot.id;
+
+    -- ─── WILDCARD REWARDS ───
+    -- Award Safety Net for 100% Accuracy
+    IF v_accuracy = 100 THEN
+      UPDATE public.profiles SET inventory_safety = inventory_safety + 1 WHERE id = v_ballot.user_id;
+    END IF;
+
+  END LOOP;
+
+  -- 5. Recalculate Streaks
+  UPDATE public.profiles p
+  SET current_streak = current_streak + 1
+  WHERE EXISTS (
+    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id AND b.match_id = p_match_id AND b.points_earned > 0
+  );
+
+  UPDATE public.profiles p
+  SET current_streak = 0
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id AND b.match_id = p_match_id AND b.points_earned > 0
+  );
+
+  -- Reward Multipliers for Streak milestones (5, 10, 15, etc.)
+  UPDATE public.profiles p
+  SET inventory_multiplier = inventory_multiplier + 1
+  WHERE current_streak > 0 AND current_streak % 5 = 0 AND EXISTS (
+    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id AND b.match_id = p_match_id AND b.points_earned > 0
+  );
+
+  -- 6. Recalculate Total Points
+  UPDATE public.profiles p
+  SET total_points = (
+    SELECT coalesce(sum(b.points_earned), 0) FROM public.ballots b WHERE b.user_id = p.id
+  )
+  WHERE EXISTS (
+    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id
+  );
+
+END;
+$$;

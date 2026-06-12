@@ -550,7 +550,7 @@ function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any
           <button className="btn btn-ghost btn-sm btn-icon" style={{ marginLeft: 'auto' }} onClick={onClose}>✕</button>
         </div>
         <div className="bento-card" style={{ textAlign: 'center', padding: '20px', marginBottom: '20px' }}>
-          <p style={{ fontSize: '40px', fontWeight: 900, color: 'var(--cup-gold)' }}>{user.total_points}</p>
+          <p style={{ fontSize: '40px', fontWeight: 900, color: 'var(--cup-gold)' }}>{Number(user.total_points || 0).toFixed(2)}</p>
           <p className="text-secondary" style={{ fontSize: '13px' }}>Total Fantasy Points</p>
         </div>
 
@@ -579,13 +579,23 @@ function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any
                         </span>
                       </div>
                       <div className="badge badge-gold" style={{ fontSize: '13px', padding: '4px 12px', fontWeight: 800 }}>
-                        +{ballot.points_earned || 0}
+                        +{Number(ballot.points_earned || 0).toFixed(2)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {(ballot.score_points_earned || 0) > 0 && (
+                      {ballot.played_card === 'MULTIPLIER' && (
+                        <span className="badge" style={{ background: 'var(--cup-red)', color: 'white', fontSize: '10px', padding: '2px 6px' }}>
+                          🔥 {ballot.accuracy_rate >= 80 ? 'x2.0 Halal Bonus' : 'x0.75 Halal Penalty'}
+                        </span>
+                      )}
+                      {ballot.played_card === 'SAFETY_NET' && (
+                        <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px', color: '#0A0C10' }}>
+                          🛡️ Safety Net Applied
+                        </span>
+                      )}
+                      {Number(ballot.score_points_earned || 0) > 0 && (
                         <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                          {ballot.score_points_earned === 5 ? 'Exact +5' : 'Outcome +2'}
+                          {Number(ballot.score_points_earned) === 5 ? 'Exact +5.00' : 'Outcome +2.00'}
                         </span>
                       )}
                       {(ballot.team_points_earned || 0) > 0 && (
@@ -760,8 +770,8 @@ function WildcardInfoModal({ onClose }: { onClose: () => void }) {
             </p>
             <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li><strong>How to Unlock:</strong> Hit a <strong>5-match prediction streak</strong>.</li>
-              <li><strong>The Reward:</strong> If your prediction is completely right (Exact Score), your <strong>total points are doubled (2.0x)</strong>.</li>
-              <li><strong>The Risk:</strong> If you miss the exact score, you are heavily penalized and receive only <strong>half (0.5x)</strong> of the points you scraped together.</li>
+              <li><strong>The Reward:</strong> If your prediction accuracy is <strong>≥ 80%</strong>, your <strong>total points are doubled (2.0x)</strong>.</li>
+              <li><strong>The Risk:</strong> If your accuracy is below 80%, you are penalized and receive only <strong>0.75x</strong> of the points you scraped together.</li>
             </ul>
           </div>
 

@@ -158,7 +158,7 @@ function PodiumCard({ entry, rank, isCurrentUser, onClick }: {
         {isCurrentUser && <span style={{ color: 'var(--cup-gold)' }}> ·You</span>}
       </p>
       <div className="badge badge-gold" style={{ fontSize: '13px', padding: '4px 12px' }}>
-        {entry.total_points} pts
+        {Number(entry.total_points || 0).toFixed(2)} pts
       </div>
     </button>
   )
@@ -198,7 +198,7 @@ function LeaderboardRow({ entry, rank, isCurrentUser, onClick }: {
       </div>
 
       <div className={`badge ${isTop3 ? 'badge-gold' : 'badge-gray'}`} style={{ fontSize: '13px', padding: '4px 12px' }}>
-        {entry.total_points} pts
+        {Number(entry.total_points || 0).toFixed(2)} pts
       </div>
     </button>
   )
