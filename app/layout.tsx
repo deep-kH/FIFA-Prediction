@@ -2,11 +2,11 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'BentoKick',
+  title: 'TACT-IX',
   description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
   keywords: 'FIFA World Cup 2026, fantasy football, prediction, friends',
   openGraph: {
-    title: 'BentoKick',
+    title: 'TACT-IX',
     description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
     type: 'website',
   },

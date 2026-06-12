@@ -439,7 +439,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
 
           {/* Meta row: date, stage, status badges */}
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }} suppressHydrationWarning>
               {kickoff.toLocaleDateString()} · {kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
             {match.stage && <span className="badge badge-gray" style={{ fontSize: '9px' }}>{match.stage}</span>}
