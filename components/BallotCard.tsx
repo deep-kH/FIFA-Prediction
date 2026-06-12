@@ -127,15 +127,16 @@ export default function BallotCard({
 
       // Upsert poll answers
       for (const [pollId, selected] of Object.entries(pollSelections)) {
-        const existing = existingPollAnswers.find(pa => pa.poll_id === parseInt(pollId))
         const pollPayload = {
           user_id: profile.id,
           poll_id: parseInt(pollId),
           selected_option: selected,
         }
-        const { data: savedAnswer, error: pollError } = existing
-          ? await supabase.from('poll_answers').update(pollPayload).eq('id', existing.id).select().single()
-          : await supabase.from('poll_answers').insert(pollPayload).select().single()
+        const { data: savedAnswer, error: pollError } = await supabase
+          .from('poll_answers')
+          .upsert(pollPayload, { onConflict: 'user_id,poll_id' })
+          .select()
+          .single()
 
         if (pollError) throw pollError
         if (savedAnswer) onPollAnswerSaved(savedAnswer as PollAnswer)

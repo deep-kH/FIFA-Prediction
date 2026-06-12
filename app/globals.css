@@ -604,6 +604,55 @@ body {
 }
 
 /* =============================================
+   MATCH SELECTOR ROW
+   ============================================= */
+
+.match-selector-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--surface-card);
+  border: 2px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.match-selector-row:hover {
+  background: var(--surface-raised);
+  border-color: var(--border-default);
+}
+
+.match-selector-row.active {
+  border-color: var(--cup-gold);
+  background: rgba(255, 215, 0, 0.05);
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2), 0 2px 8px rgba(255, 215, 0, 0.1);
+}
+
+.match-selector-row.has-ballot {
+  border-left: 4px solid var(--cup-green);
+}
+
+.match-selector-row.no-ballot {
+  border-left: 4px solid var(--border-default);
+  opacity: 0.75;
+}
+
+.match-selector-row.no-ballot:hover {
+  opacity: 1;
+}
+
+.match-selector-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* =============================================
    LEADERBOARD ROW
    ============================================= */
 

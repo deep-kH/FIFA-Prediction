@@ -453,6 +453,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, selectedMatc
       <div className="ballot-area">
         {selectedMatch ? (
           <BallotCard
+            key={selectedMatch.id}
             match={selectedMatch}
             profile={profile}
             existingBallot={userBallot}
@@ -505,7 +506,7 @@ function MatchSelectorRow({ match, isSelected, onSelect, hasBallot }: any) {
 
   return (
     <button
-      className={`match-selector-row ${isSelected ? 'active' : ''}`}
+      className={`match-selector-row ${isSelected ? 'active' : ''} ${hasBallot ? 'has-ballot' : (!isCompleted && !isLocked ? 'no-ballot' : '')}`}
       onClick={onSelect}
     >
       <div className="match-selector-teams">
@@ -517,11 +518,12 @@ function MatchSelectorRow({ match, isSelected, onSelect, hasBallot }: any) {
       </div>
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          {kickoff.toLocaleDateString()} · {kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {kickoff.toLocaleDateString('en-GB')} · {kickoff.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
         </span>
         {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}
         {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
-        {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓ Saved</span>}
+        {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓ Saved · Edit</span>}
+        {!isLocked && !hasBallot && <span className="badge" style={{ fontSize: '9px', background: 'var(--surface-overlay)', color: 'var(--text-muted)' }}>Not Submitted</span>}
       </div>
     </button>
   )
