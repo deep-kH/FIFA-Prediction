@@ -87,7 +87,7 @@ export default function Leaderboard({ entries, currentUserId, onProfileClick }: 
   )
 }
 
-function StreakFlame({ streak }: { streak?: number }) {
+export function StreakFlame({ streak }: { streak?: number }) {
   if (!streak || streak < 2) return null;
   let color = 'var(--cup-red)';
   if (streak >= 20) color = 'var(--cup-gold)';

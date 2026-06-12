@@ -381,7 +381,7 @@ export default function BallotCard({
                   <span style={{ fontSize: '12px', fontWeight: 800, color: activeCard === 'SAFETY_NET' ? 'var(--cup-gold)' : 'var(--text-primary)' }}>Haram Ball</span>
                 </div>
                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                  Overrides a 0-point ballot to 50% max points.
+                  Guarantees 2.50 points and protects streak.
                 </p>
               </button>
             )}

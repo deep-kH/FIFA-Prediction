@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Profile, Match, Ballot, PollAnswer } from '@/types/database'
-import Leaderboard from '@/components/Leaderboard'
+import Leaderboard, { StreakFlame } from '@/components/Leaderboard'
 import BallotCard from '@/components/BallotCard'
 import AdminPanel from '@/components/admin/AdminPanel'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -136,14 +136,17 @@ export default function DashboardClient({
               </span>
             </button>
 
-            <button
-              onClick={() => setShowProfileEdit(true)}
-              className="sidebar-avatar"
-              style={{ width: '32px', height: '32px', fontSize: '14px', cursor: 'pointer', border: 'none', padding: 0 }}
-              title="Edit Profile"
-            >
-              {currentProfile.avatar_letter}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <StreakFlame streak={currentProfile.current_streak} />
+              <button
+                onClick={() => setShowProfileEdit(true)}
+                className="sidebar-avatar"
+                style={{ width: '32px', height: '32px', fontSize: '14px', cursor: 'pointer', border: 'none', padding: 0 }}
+                title="Edit Profile"
+              >
+                {currentProfile.avatar_letter}
+              </button>
+            </div>
             <ThemeToggle />
             <button className="btn btn-ghost btn-icon" onClick={handleSignOut} title="Sign Out">
               <LogOut size={16} />
@@ -355,8 +358,8 @@ export default function DashboardClient({
         }
         .sidebar-avatar {
           width: 38px; height: 38px;
-          background: var(--cup-gold);
-          color: #0A0C10;
+          background: #ffffff;
+          color: #000000;
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -627,7 +630,7 @@ function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any
 
 // ─── PROFILE EDIT MODAL ────────────────────────────────────
 const EMOJI_OPTIONS = [
-  '⚽', '🏆', '🥇', '🎯', '🔥', '⭐', '🦁', '🐺', '🦅', '🐉',
+  '⚽', '🥷🏻', '🧔🏻‍♂️', '🧔🏻', '🧔🏻‍♀️', '⭐', '🦁', '🐺', '🦅', '🐉',
   '🎩', '👑', '💎', '🚀', '⚡', '🎸', '🎮', '🤖', '👽', '🦄',
   '🧠', '💀', '🎃', '🎪', '🌟', '🌊', '🍀', '🌶️', '🎱', '🏴‍☠️',
   '😎', '🤩', '😈', '🥶', '🤠', '🫡', '🧐', '😤', '🫣', '🤓',
@@ -786,7 +789,7 @@ function WildcardInfoModal({ onClose }: { onClose: () => void }) {
             </p>
             <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li><strong>How to Unlock:</strong> Achieved <em>exclusively</em> by hitting <strong>100% Accuracy</strong> on a single match.</li>
-              <li><strong>The Safety Net:</strong> If the match goes completely sideways and your predictions score <strong>0 points</strong>, this card automatically overrides your score, awarding you <strong>50% of the maximum theoretical points</strong> possible for that match.</li>
+              <li><strong>The Safety Net:</strong> If your predictions score less than 2.50 points, this card automatically bumps your score to a guaranteed <strong>2.50 points</strong>. It also completely protects your prediction streak from resetting, even if your accuracy drops below 25%!</li>
             </ul>
           </div>
 
