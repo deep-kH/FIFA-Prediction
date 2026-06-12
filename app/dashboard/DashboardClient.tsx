@@ -399,135 +399,244 @@ export default function DashboardClient({
 }
 
 // ─── MATCHES TAB ───────────────────────────────────────────
-function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, selectedMatch, profile, userBallot, userPollAnswers, allBallots, allPollAnswers, onBallotSaved, onPollAnswerSaved }: any) {
+function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, allBallots, allPollAnswers, onBallotSaved, onPollAnswerSaved }: any) {
   const [showCompleted, setShowCompleted] = useState(false)
   const upcoming = matches.filter((m: any) => !m.is_completed)
   const completed = matches.filter((m: any) => m.is_completed)
+  const selectedMatch = matches.find((m: any) => m.id === selectedMatchId)
 
-  return (
-    <div className="matches-tab">
-      {/* Match Selector */}
-      <div className="matches-selector">
-        <div className="matches-selector-header">
-          <h2 className="matches-section-title">Match Ballots</h2>
-          <span className="badge badge-green">{upcoming.length} Upcoming</span>
-        </div>
+  const toggleMatch = (matchId: number) => {
+    setSelectedMatchId(selectedMatchId === matchId ? null : matchId)
+  }
 
-        <div className="match-list">
-          {upcoming.map((match: any) => (
-            <MatchSelectorRow
-              key={match.id}
-              match={match}
-              isSelected={selectedMatchId === match.id}
-              onSelect={() => setSelectedMatchId(match.id)}
-              hasBallot={allBallots.some((b: any) => b.match_id === match.id)}
-            />
-          ))}
+  const renderMatchCard = (match: any) => {
+    const isExpanded = selectedMatchId === match.id
+    const kickoff = new Date(match.kickoff_time)
+    const isLocked = new Date() >= kickoff
+    const isCompleted = match.is_completed
+    const myBallot = allBallots.find((b: any) => b.match_id === match.id && b.user_id === profile.id)
+    const hasBallot = !!myBallot
 
-          {completed.length > 0 && (
-            <>
-              <button
-                className="btn btn-ghost btn-sm"
-                style={{ width: '100%', marginTop: '8px' }}
-                onClick={() => setShowCompleted(!showCompleted)}
-                id="toggle-completed-btn"
-              >
-                {showCompleted ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {completed.length} Completed Matches
-              </button>
-              {showCompleted && completed.map((match: any) => (
-                <MatchSelectorRow
-                  key={match.id}
-                  match={match}
-                  isSelected={selectedMatchId === match.id}
-                  onSelect={() => setSelectedMatchId(match.id)}
-                  hasBallot={allBallots.some((b: any) => b.match_id === match.id)}
-                />
-              ))}
-            </>
+    // Determine card visual state
+    const cardState = isCompleted ? 'completed' : hasBallot ? 'submitted' : 'pending'
+
+    return (
+      <button key={match.id} className={`match-card ${cardState} ${isExpanded ? 'active' : ''}`} onClick={() => toggleMatch(match.id)}>
+        {/* Left accent bar */}
+        <div className={`match-card-accent ${cardState}`} />
+
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Teams row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 600 }}>{match.home_team?.flag_emoji} {match.home_team?.name}</span>
+              <span className="font-score" style={{ fontSize: '18px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+                {isCompleted ? `${match.home_score} – ${match.away_score}` : 'vs'}
+              </span>
+              <span style={{ fontSize: '14px', fontWeight: 600, textAlign: 'right' }}>{match.away_team?.name} {match.away_team?.flag_emoji}</span>
+            </div>
+          </div>
+
+          {/* Meta row: date, stage, status badges */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {kickoff.toLocaleDateString()} · {kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            {match.stage && <span className="badge badge-gray" style={{ fontSize: '9px' }}>{match.stage}</span>}
+            {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}
+            {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
+            {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓</span>}
+            {!isLocked && !hasBallot && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Pending</span>}
+          </div>
+
+          {/* Predicted / Actual scores */}
+          {hasBallot && (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '2px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Your prediction: <span className="font-score" style={{ fontSize: '16px', color: 'var(--cup-gold)', letterSpacing: '1px' }}>{myBallot.predicted_home_score} – {myBallot.predicted_away_score}</span>
+              </span>
+              {isCompleted && (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  · Result: <span className="font-score" style={{ fontSize: '16px', color: 'var(--text-primary)', letterSpacing: '1px' }}>{match.home_score} – {match.away_score}</span>
+                </span>
+              )}
+            </div>
           )}
         </div>
+
+        {/* Right side: edit icon + chevron */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {!isLocked && hasBallot && (
+            <Pencil size={14} color="var(--cup-green)" />
+          )}
+        </div>
+      </button>
+    )
+  }
+
+  const renderSelectedMatchDetails = () => {
+    const match = selectedMatch
+    if (!match) return null
+    const myBallot = allBallots.find((b: any) => b.match_id === match.id && b.user_id === profile.id)
+    const myPollAnswers = allPollAnswers.filter((pa: any) =>
+      match.custom_polls?.some((cp: any) => cp.id === pa.poll_id) && pa.user_id === profile.id
+    )
+    return (
+      <div className="selected-match-details">
+        <BallotCard
+          key={match.id}
+          match={match}
+          profile={profile}
+          existingBallot={myBallot}
+          existingPollAnswers={myPollAnswers}
+          allBallots={allBallots}
+          allPollAnswers={allPollAnswers}
+          onBallotSaved={onBallotSaved}
+          onPollAnswerSaved={onPollAnswerSaved}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Match Ballots</h2>
+        <span className="badge badge-green">{upcoming.length} Upcoming</span>
       </div>
 
-      {/* Ballot Card */}
-      <div className="ballot-area">
-        {selectedMatch ? (
-          <BallotCard
-            key={selectedMatch.id}
-            match={selectedMatch}
-            profile={profile}
-            existingBallot={userBallot}
-            existingPollAnswers={userPollAnswers}
-            allBallots={allBallots}
-            allPollAnswers={allPollAnswers}
-            onBallotSaved={onBallotSaved}
-            onPollAnswerSaved={onPollAnswerSaved}
-          />
-        ) : (
-          <div className="bento-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', gap: '16px' }}>
-            <Trophy size={48} color="var(--text-muted)" />
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
-              Select a match from the left to place your prediction
-            </p>
-          </div>
-        )}
+      <div className="match-grid">
+        {upcoming.map(renderMatchCard)}
       </div>
 
+      {selectedMatch && !selectedMatch.is_completed && renderSelectedMatchDetails()}
+
+      {completed.length > 0 && (
+        <>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ width: '100%', marginTop: '4px' }}
+            onClick={() => setShowCompleted(!showCompleted)}
+            id="toggle-completed-btn"
+          >
+            {showCompleted ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {completed.length} Completed Matches
+          </button>
+          {showCompleted && (
+            <div className="match-grid">
+              {completed.map(renderMatchCard)}
+            </div>
+          )}
+          {showCompleted && selectedMatch && selectedMatch.is_completed && renderSelectedMatchDetails()}
+        </>
+      )}
       <style jsx>{`
-        .matches-tab {
+        .match-grid {
           display: grid;
-          grid-template-columns: 300px 1fr;
-          gap: 20px;
-          align-items: start;
+          grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+          gap: 12px;
         }
-        .matches-selector { display: flex; flex-direction: column; gap: 12px; }
-        .matches-selector-header { display: flex; align-items: center; justify-content: space-between; }
-        .matches-section-title { font-size: 18px; font-weight: 800; }
-        .match-list { display: flex; flex-direction: column; gap: 8px; }
-        .ballot-area { }
-        @media (max-width: 900px) {
-          .matches-tab { grid-template-columns: 1fr; }
+        @media (max-width: 500px) {
+          .match-grid { grid-template-columns: 1fr; }
+        }
+        .match-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          width: 100%;
+          padding: 16px 18px;
+          border: 2px solid var(--border-subtle);
+          border-radius: 16px;
+          background: var(--surface-card);
+          overflow: hidden;
+          transition: all 0.2s ease;
+          position: relative;
+          text-align: left;
+          color: var(--text-primary);
+          cursor: pointer;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .match-card:hover {
+          background: var(--surface-raised);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+          transform: translateY(-2px);
+        }
+        .match-card.submitted {
+          border-color: rgba(57, 255, 20, 0.6);
+          background: rgba(57, 255, 20, 0.05);
+          animation: pulseSubmittedBorder 4s infinite ease-in-out;
+        }
+        .match-card.pending {
+          border-color: rgba(255, 49, 49, 0.4);
+          background: rgba(255, 49, 49, 0.04);
+          animation: pulsePendingBorder 4s infinite ease-in-out;
+        }
+        .match-card.completed {
+          border-color: var(--border-subtle);
+          opacity: 0.8;
+          box-shadow: none;
+        }
+        .match-card.completed:hover {
+          opacity: 1;
+          transform: none;
+        }
+        .match-card.active {
+          border-color: var(--cup-gold);
+          box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3), 0 8px 25px rgba(255, 215, 0, 0.15);
+          opacity: 1;
+          transform: none;
+          animation: pulseActiveBorder 2.5s infinite ease-in-out;
+        }
+        @keyframes pulsePendingBorder {
+          0% { border-color: rgba(255, 49, 49, 0.2); }
+          50% { border-color: rgba(255, 49, 49, 0.6); }
+          100% { border-color: rgba(255, 49, 49, 0.2); }
+        }
+        @keyframes pulseSubmittedBorder {
+          0% { border-color: rgba(57, 255, 20, 0.3); }
+          50% { border-color: rgba(57, 255, 20, 0.8); }
+          100% { border-color: rgba(57, 255, 20, 0.3); }
+        }
+        @keyframes pulseActiveBorder {
+          0% { border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2), 0 8px 25px rgba(255, 215, 0, 0.1); }
+          50% { border-color: rgba(255, 215, 0, 1); box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.4), 0 8px 30px rgba(255, 215, 0, 0.25); }
+          100% { border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2), 0 8px 25px rgba(255, 215, 0, 0.1); }
+        }
+        .match-card-accent {
+          width: 4px;
+          min-height: 40px;
+          border-radius: 4px;
+          flex-shrink: 0;
+          align-self: stretch;
+        }
+        .match-card-accent.submitted {
+          background: var(--cup-green);
+        }
+        .match-card-accent.pending {
+          background: var(--cup-red);
+          opacity: 0.5;
+        }
+        .match-card-accent.completed {
+          background: var(--text-muted);
+          opacity: 0.3;
+        }
+        .selected-match-details {
+          margin-top: 8px;
+          animation: slideDown 0.3s ease-out;
+        }
+        .selected-match-details :global(.bento-card) {
+          border: 2px solid var(--cup-gold);
+          animation: pulseActiveBorder 2.5s infinite ease-in-out;
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
   )
 }
 
-function MatchSelectorRow({ match, isSelected, onSelect, hasBallot }: any) {
-  const kickoff = new Date(match.kickoff_time)
-  const [isLocked, setIsLocked] = useState(false)
-  const isCompleted = match.is_completed
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLocked(new Date() >= kickoff)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match.kickoff_time])
-
-  return (
-    <button
-      className={`match-selector-row ${isSelected ? 'active' : ''} ${hasBallot ? 'has-ballot' : (!isCompleted && !isLocked ? 'no-ballot' : '')}`}
-      onClick={onSelect}
-    >
-      <div className="match-selector-teams">
-        <span style={{ fontSize: '14px' }}>{match.home_team?.flag_emoji} {match.home_team?.name}</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>
-          {isCompleted ? `${match.home_score} - ${match.away_score}` : 'vs'}
-        </span>
-        <span style={{ fontSize: '14px' }}>{match.away_team?.flag_emoji} {match.away_team?.name}</span>
-      </div>
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          {kickoff.toLocaleDateString('en-GB')} · {kickoff.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-        </span>
-        {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}
-        {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
-        {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓ Saved · Edit</span>}
-        {!isLocked && !hasBallot && <span className="badge" style={{ fontSize: '9px', background: 'var(--surface-overlay)', color: 'var(--text-muted)' }}>Not Submitted</span>}
-      </div>
-    </button>
-  )
-}
 
 // ─── PROFILE MODAL ─────────────────────────────────────────
 function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches, onClose }: any) {
@@ -730,9 +839,9 @@ function ProfileEditModal({ profile, onClose, onSaved }: { profile: Profile; onC
             background: 'var(--surface-raised)', borderRadius: '10px', padding: '10px',
             maxHeight: '160px', overflowY: 'auto'
           }}>
-            {EMOJI_OPTIONS.map(emoji => (
+            {EMOJI_OPTIONS.map((emoji, index) => (
               <button
-                key={emoji}
+                key={`emoji-${index}`}
                 onClick={() => setAvatarEmoji(emoji)}
                 style={{
                   width: '32px', height: '32px', fontSize: '18px', background: avatarEmoji === emoji ? 'rgba(245,200,66,0.25)' : 'transparent',
