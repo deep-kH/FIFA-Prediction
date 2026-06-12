@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   // Fetch leaderboard (all profiles sorted by points)
   const { data: leaderboard } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_letter, total_points, is_admin')
+    .select('id, display_name, avatar_letter, total_points, is_admin, current_streak')
     .order('total_points', { ascending: false })
 
   // Fetch ballots (RLS ensures user only gets their own for upcoming matches, but ALL for locked matches)

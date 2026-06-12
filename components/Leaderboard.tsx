@@ -9,6 +9,7 @@ interface LeaderboardEntry {
   avatar_letter: string
   total_points: number
   is_admin?: boolean
+  current_streak?: number
 }
 
 interface Props {
@@ -86,6 +87,31 @@ export default function Leaderboard({ entries, currentUserId, onProfileClick }: 
   )
 }
 
+function StreakFlame({ streak }: { streak?: number }) {
+  if (!streak || streak < 2) return null;
+  let color = 'var(--cup-red)';
+  if (streak >= 20) color = 'var(--cup-gold)';
+  else if (streak >= 10) color = '#C0C0C0'; // Silver
+
+  return (
+    <span title={`${streak} Match Streak!`} style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '2px',
+      marginLeft: '6px',
+      padding: '1px 5px',
+      borderRadius: '8px',
+      background: `color-mix(in srgb, ${color} 15%, transparent)`,
+      color: color,
+      fontSize: '11px',
+      fontWeight: 800,
+      border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`
+    }}>
+      🔥 {streak}
+    </span>
+  )
+}
+
 function PodiumCard({ entry, rank, isCurrentUser, onClick }: {
   entry: LeaderboardEntry; rank: number; isCurrentUser: boolean; onClick: () => void
 }) {
@@ -128,6 +154,7 @@ function PodiumCard({ entry, rank, isCurrentUser, onClick }: {
       </div>
       <p style={{ fontSize: '13px', fontWeight: 700, textAlign: 'center', color: 'var(--text-primary)' }}>
         {entry.display_name}
+        <StreakFlame streak={entry.current_streak} />
         {isCurrentUser && <span style={{ color: 'var(--cup-gold)' }}> ·You</span>}
       </p>
       <div className="badge badge-gold" style={{ fontSize: '13px', padding: '4px 12px' }}>
@@ -164,6 +191,7 @@ function LeaderboardRow({ entry, rank, isCurrentUser, onClick }: {
       <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
         <p style={{ fontSize: '14px', fontWeight: isCurrentUser ? 700 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {entry.display_name}
+          <StreakFlame streak={entry.current_streak} />
           {isCurrentUser && <span style={{ color: 'var(--cup-gold)', marginLeft: '6px', fontSize: '12px' }}>You</span>}
           {entry.is_admin && <span style={{ marginLeft: '6px' }}><Shield size={11} color="var(--cup-blue)" /></span>}
         </p>
