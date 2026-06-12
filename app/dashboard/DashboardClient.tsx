@@ -238,6 +238,7 @@ export default function DashboardClient({
           user={profileModalUser}
           currentUserId={currentProfile.id}
           allBallots={ballots}
+          allPollAnswers={pollAnswers}
           matches={matches}
           onClose={() => setProfileModalUser(null)}
         />
@@ -527,7 +528,7 @@ function MatchSelectorRow({ match, isSelected, onSelect, hasBallot }: any) {
 }
 
 // ─── PROFILE MODAL ─────────────────────────────────────────
-function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any) {
+function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches, onClose }: any) {
   const userBallots = allBallots.filter((b: any) => b.user_id === user.id);
   const settledBallots = userBallots.filter((b: any) => {
     const m = matches.find((m: any) => m.id === b.match_id);
@@ -567,6 +568,16 @@ function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {settledBallots.map((ballot: any) => {
                 const match = matches.find((m: any) => m.id === ballot.match_id);
+                const topScorerPts = (ballot.predicted_top_scorer_id && match?.top_scorer_id && ballot.predicted_top_scorer_id === match.top_scorer_id) ? 3 : 0;
+                
+                const matchPollIds = (match?.custom_polls || []).map((cp: any) => cp.id);
+                const userAnswers = allPollAnswers?.filter((pa: any) => pa.user_id === user.id && matchPollIds.includes(pa.poll_id)) || [];
+                const pollPts = userAnswers.reduce((acc: number, pa: any) => {
+                  const poll = match?.custom_polls.find((cp: any) => cp.id === pa.poll_id);
+                  if (poll && pa.selected_option === poll.correct_option) return acc + 2;
+                  return acc;
+                }, 0);
+
                 return (
                   <div key={ballot.id} style={{ padding: '14px', background: 'var(--surface-base)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -604,6 +615,16 @@ function ProfileModal({ user, currentUserId, allBallots, matches, onClose }: any
                       {(ballot.team_points_earned || 0) > 0 && (
                         <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
                           Team Goals +{ballot.team_points_earned}
+                        </span>
+                      )}
+                      {topScorerPts > 0 && (
+                        <span className="badge" style={{ background: '#8A2BE2', color: 'white', fontSize: '10px', padding: '2px 6px' }}>
+                          Top Scorer +{topScorerPts.toFixed(2)}
+                        </span>
+                      )}
+                      {pollPts > 0 && (
+                        <span className="badge" style={{ background: '#FF4500', color: 'white', fontSize: '10px', padding: '2px 6px' }}>
+                          Polls +{pollPts.toFixed(2)}
                         </span>
                       )}
                       {ballot.accuracy_rate > 0 && (

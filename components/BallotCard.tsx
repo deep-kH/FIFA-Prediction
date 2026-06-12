@@ -457,11 +457,7 @@ export default function BallotCard({
                         <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px', color: 'var(--text-primary)' }}>
                           {b.predicted_home_score} - {b.predicted_away_score}
                         </span>
-                        {isCompleted && (
-                          <span className="badge badge-gold" style={{ fontSize: '12px', padding: '3px 10px', fontWeight: 800 }}>
-                            +{Number(b.points_earned || 0).toFixed(2)}
-                          </span>
-                        )}
+
                         <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>
                           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </span>
@@ -474,7 +470,7 @@ export default function BallotCard({
                         
                         {/* Top Scorer Prediction */}
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px', marginBottom: '8px' }}>
-                          <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Top Scorer:</span>
+                          <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Player of the match:</span>
                           <span className="text-secondary" style={{ flex: 1 }}>
                             {b.predicted_top_scorer_id 
                               ? players.find(p => p.id === b.predicted_top_scorer_id)?.name || 'Unknown Player'
