@@ -37,6 +37,7 @@ export default function BallotCard({
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0 })
   const [showReveal, setShowReveal] = useState(false)
   const [expandedReveal, setExpandedReveal] = useState<Record<string, boolean>>({})
+  const [activeCard, setActiveCard] = useState<'NONE' | 'MULTIPLIER' | 'SAFETY_NET'>(existingBallot?.played_card || 'NONE')
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const kickoff = new Date(match.kickoff_time)
@@ -108,7 +109,21 @@ export default function BallotCard({
         : await supabase.from('ballots').insert(ballotPayload).select().single()
 
       if (ballotError) throw ballotError
-      if (savedBallot) onBallotSaved(savedBallot as Ballot)
+      
+      const ballotData = savedBallot as Ballot
+      if (savedBallot) onBallotSaved(ballotData)
+
+      // Apply Gamification Card via Secure RPC if changed
+      if (activeCard !== (existingBallot?.played_card || 'NONE')) {
+        const { error: rpcError } = await supabase.rpc('play_gamification_card', {
+          p_match_id: match.id,
+          p_card_type: activeCard
+        })
+        if (rpcError) throw new Error(`Wildcard Error: ${rpcError.message}`)
+        // We mutate the local state to reflect the change immediately so subsequent saves don't re-trigger it
+        ballotData.played_card = activeCard
+        onBallotSaved(ballotData)
+      }
 
       // Upsert poll answers
       for (const [pollId, selected] of Object.entries(pollSelections)) {
@@ -321,6 +336,59 @@ export default function BallotCard({
         )}
       </div>
 
+      {/* Gamification Wildcards (Equip UI) */}
+      {!isLocked && (profile.inventory_multiplier > 0 || profile.inventory_safety > 0 || activeCard !== 'NONE') && (
+        <div className="ballot-section" style={{ padding: '16px', background: 'rgba(20,20,20,0.4)', borderRadius: '12px', border: '1px dashed var(--border-default)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <span style={{ fontSize: '18px' }}>🃏</span>
+            <p style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Wildcards</p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Multiplier Card */}
+            {(profile.inventory_multiplier > 0 || activeCard === 'MULTIPLIER') && (
+              <button
+                onClick={() => setActiveCard(activeCard === 'MULTIPLIER' ? 'NONE' : 'MULTIPLIER')}
+                style={{
+                  flex: 1, minWidth: '140px', padding: '12px', borderRadius: '10px', cursor: 'pointer', textAlign: 'left',
+                  background: activeCard === 'MULTIPLIER' ? 'linear-gradient(135deg, rgba(138,43,226,0.1), rgba(220,20,60,0.1))' : 'var(--surface-card)',
+                  border: `2px solid ${activeCard === 'MULTIPLIER' ? '#8A2BE2' : 'var(--border-subtle)'}`,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px' }}>🔥</span>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: activeCard === 'MULTIPLIER' ? '#8A2BE2' : 'var(--text-primary)' }}>Halal Ball</span>
+                </div>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Double points if exact score. Half points if missed.
+                </p>
+              </button>
+            )}
+            
+            {/* Safety Net Card */}
+            {(profile.inventory_safety > 0 || activeCard === 'SAFETY_NET') && (
+              <button
+                onClick={() => setActiveCard(activeCard === 'SAFETY_NET' ? 'NONE' : 'SAFETY_NET')}
+                style={{
+                  flex: 1, minWidth: '140px', padding: '12px', borderRadius: '10px', cursor: 'pointer', textAlign: 'left',
+                  background: activeCard === 'SAFETY_NET' ? 'linear-gradient(135deg, rgba(245,200,66,0.1), rgba(205,127,50,0.1))' : 'var(--surface-card)',
+                  border: `2px solid ${activeCard === 'SAFETY_NET' ? 'var(--cup-gold)' : 'var(--border-subtle)'}`,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px' }}>🛡️</span>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: activeCard === 'SAFETY_NET' ? 'var(--cup-gold)' : 'var(--text-primary)' }}>Haram Ball</span>
+                </div>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Overrides a 0-point ballot to 50% max points.
+                </p>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Save / Error */}
       {!isLocked && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -380,6 +448,8 @@ export default function BallotCard({
                         </div>
                         <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
                           {b.profiles?.display_name || 'Unknown'}
+                          {b.played_card === 'MULTIPLIER' && <span title="Halal Ball" style={{ marginLeft: '6px' }}>🔥</span>}
+                          {b.played_card === 'SAFETY_NET' && <span title="Haram Ball" style={{ marginLeft: '6px' }}>🛡️</span>}
                           {b.user_id === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
                         </span>
                       </div>

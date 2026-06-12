@@ -9,7 +9,7 @@ import AdminPanel from '@/components/admin/AdminPanel'
 import ThemeToggle from '@/components/ThemeToggle'
 import {
   Trophy, LogOut, Shield, Zap, Pencil,
-  ChevronDown, ChevronUp, User, BarChart2
+  ChevronDown, ChevronUp, User, BarChart2, X
 } from 'lucide-react'
 
 interface Props {
@@ -33,6 +33,7 @@ export default function DashboardClient({
   const [pollAnswers, setPollAnswers] = useState<PollAnswer[]>(userPollAnswers)
   const [profileModalUser, setProfileModalUser] = useState<any | null>(null)
   const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [showWildcardInfo, setShowWildcardInfo] = useState(false)
   const [currentProfile, setCurrentProfile] = useState(profile)
 
   const supabase = createClient()
@@ -113,7 +114,28 @@ export default function DashboardClient({
           </div>
 
           {/* Controls: Profile, Theme Toggle, Sign Out */}
-          <div className="topnav-controls">
+          <div className="topnav-controls" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Wildcard Inventory */}
+            <button 
+              onClick={() => setShowWildcardInfo(true)}
+              title="View Wildcard Rules"
+              style={{ 
+                display: 'flex', gap: '8px', fontSize: '13px', fontWeight: 800, padding: '4px 12px', 
+                background: 'var(--surface-overlay)', borderRadius: '20px', border: '1px solid var(--border-subtle)',
+                cursor: 'pointer', transition: 'all 0.2s', alignItems: 'center'
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--text-muted)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
+            >
+              <span style={{ display: 'flex', gap: '4px', alignItems: 'center', color: 'var(--cup-red)' }}>
+                🔥 {currentProfile.inventory_multiplier || 0}
+              </span>
+              <span style={{ color: 'var(--border-strong)' }}>|</span>
+              <span style={{ display: 'flex', gap: '4px', alignItems: 'center', color: 'var(--cup-gold)' }}>
+                🛡️ {currentProfile.inventory_safety || 0}
+              </span>
+            </button>
+
             <button
               onClick={() => setShowProfileEdit(true)}
               className="sidebar-avatar"
@@ -230,6 +252,9 @@ export default function DashboardClient({
           }}
         />
       )}
+
+      {/* Wildcard Info Modal */}
+      {showWildcardInfo && <WildcardInfoModal onClose={() => setShowWildcardInfo(false)} />}
 
       <style jsx>{`
         .dashboard-layout {
@@ -705,6 +730,63 @@ function ProfileEditModal({ profile, onClose, onSaved }: { profile: Profile; onC
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+function WildcardInfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', padding: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Tactical Wildcards
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Halal Ball */}
+          <div style={{ padding: '16px', background: 'linear-gradient(135deg, rgba(138,43,226,0.05), rgba(220,20,60,0.05))', borderRadius: '12px', border: '1px solid rgba(138,43,226,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '24px' }}>🔥</span>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--cup-red)' }}>The Halal Ball</h3>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+              The ultimate high-risk, high-reward multiplier for when you are absolutely certain of an outcome.
+            </p>
+            <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li><strong>How to Unlock:</strong> Hit a <strong>5-match prediction streak</strong>.</li>
+              <li><strong>The Reward:</strong> If your prediction is completely right (Exact Score), your <strong>total points are doubled (2.0x)</strong>.</li>
+              <li><strong>The Risk:</strong> If you miss the exact score, you are heavily penalized and receive only <strong>half (0.5x)</strong> of the points you scraped together.</li>
+            </ul>
+          </div>
+
+          {/* Haram Ball */}
+          <div style={{ padding: '16px', background: 'linear-gradient(135deg, rgba(245,200,66,0.05), rgba(205,127,50,0.05))', borderRadius: '12px', border: '1px solid rgba(245,200,66,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '24px' }}>🛡️</span>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--cup-gold)' }}>The Haram Ball</h3>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+              A massive insurance policy for chaotic, unpredictable knockout games.
+            </p>
+            <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li><strong>How to Unlock:</strong> Achieved <em>exclusively</em> by hitting <strong>100% Accuracy</strong> on a single match.</li>
+              <li><strong>The Safety Net:</strong> If the match goes completely sideways and your predictions score <strong>0 points</strong>, this card automatically overrides your score, awarding you <strong>50% of the maximum theoretical points</strong> possible for that match.</li>
+            </ul>
+          </div>
+
+          <div style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, textAlign: 'center' }}>
+              You can equip one wildcard per match. If you change your mind, you can un-equip it before kickoff to return it to your inventory!
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
   )

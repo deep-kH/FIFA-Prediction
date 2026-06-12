@@ -7,6 +7,9 @@ export interface Profile {
   avatar_letter: string
   total_points: number
   is_admin: boolean
+  current_streak?: number
+  inventory_multiplier: number
+  inventory_safety: number
   created_at: string
 }
 
@@ -63,6 +66,7 @@ export interface Ballot {
   team_points_earned: number
   accuracy_rate: number
   accuracy_bonus_earned: number
+  played_card: 'NONE' | 'MULTIPLIER' | 'SAFETY_NET'
   created_at: string
   profiles?: Profile
   predicted_top_scorer?: Player
