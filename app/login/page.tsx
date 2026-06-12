@@ -76,8 +76,8 @@ export default function LoginPage() {
             <Trophy size={28} color="#0A0C10" strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="login-title">BentoKick</h1>
-            <p className="login-subtitle">FANTASY ENGINE</p>
+            <h1 className="login-title">TACT-IX</h1>
+            <p className="login-subtitle">THE ULTIMATE FOOTBALL PREDICTOR</p>
           </div>
         </div>
 

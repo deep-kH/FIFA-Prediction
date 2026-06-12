@@ -109,18 +109,18 @@ export default function DashboardClient({
               <Trophy size={20} color="#0A0C10" strokeWidth={2.5} />
             </div>
             <div>
-              <span className="sidebar-logo-text font-display" style={{ fontSize: '18px' }}>BentoKick</span>
+              <span className="sidebar-logo-text font-display" style={{ fontSize: '18px' }}>TACT-IX</span>
             </div>
           </div>
 
           {/* Controls: Profile, Theme Toggle, Sign Out */}
           <div className="topnav-controls" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {/* Wildcard Inventory */}
-            <button 
+            <button
               onClick={() => setShowWildcardInfo(true)}
               title="View Wildcard Rules"
-              style={{ 
-                display: 'flex', gap: '8px', fontSize: '13px', fontWeight: 800, padding: '4px 12px', 
+              style={{
+                display: 'flex', gap: '8px', fontSize: '13px', fontWeight: 800, padding: '4px 12px',
                 background: 'var(--surface-overlay)', borderRadius: '20px', border: '1px solid var(--border-subtle)',
                 cursor: 'pointer', transition: 'all 0.2s', alignItems: 'center'
               }}
@@ -530,7 +530,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           {showCompleted && selectedMatch && selectedMatch.is_completed && renderSelectedMatchDetails()}
         </>
       )}
-      <style jsx>{`
+      <style jsx global>{`
         .match-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -545,7 +545,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           gap: 12px;
           width: 100%;
           padding: 16px 18px;
-          border: 2px solid var(--border-subtle);
+          border: 1px solid var(--border-subtle);
           border-radius: 16px;
           background: var(--surface-card);
           overflow: hidden;
@@ -562,17 +562,20 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           transform: translateY(-2px);
         }
         .match-card.submitted {
-          border-color: rgba(57, 255, 20, 0.6);
-          background: rgba(57, 255, 20, 0.05);
+          border: 1px solid var(--cup-green);
+          background-color: var(--surface-card);
+          box-shadow: inset 0 0 40px rgba(57, 255, 20, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
           animation: pulseSubmittedBorder 4s infinite ease-in-out;
         }
         .match-card.pending {
-          border-color: rgba(255, 49, 49, 0.4);
-          background: rgba(255, 49, 49, 0.04);
+          border: 1px solid var(--cup-red);
+          background-color: var(--surface-card);
+          box-shadow: inset 0 0 40px rgba(255, 49, 49, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
           animation: pulsePendingBorder 4s infinite ease-in-out;
         }
         .match-card.completed {
           border-color: var(--border-subtle);
+          background-color: var(--surface-card);
           opacity: 0.8;
           box-shadow: none;
         }
@@ -581,26 +584,27 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           transform: none;
         }
         .match-card.active {
-          border-color: var(--cup-gold);
-          box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3), 0 8px 25px rgba(255, 215, 0, 0.15);
+          border: 1px solid var(--cup-gold);
+          background-color: var(--surface-card);
+          box-shadow: inset 0 0 50px rgba(255, 215, 0, 0.15), 0 0 0 1px rgba(255, 215, 0, 0.4), 0 8px 25px rgba(255, 215, 0, 0.15);
           opacity: 1;
           transform: none;
           animation: pulseActiveBorder 2.5s infinite ease-in-out;
         }
         @keyframes pulsePendingBorder {
-          0% { border-color: rgba(255, 49, 49, 0.2); }
-          50% { border-color: rgba(255, 49, 49, 0.6); }
-          100% { border-color: rgba(255, 49, 49, 0.2); }
+          0% { border-color: rgba(255, 49, 49, 0.3); }
+          50% { border-color: rgba(255, 49, 49, 0.8); }
+          100% { border-color: rgba(255, 49, 49, 0.3); }
         }
         @keyframes pulseSubmittedBorder {
-          0% { border-color: rgba(57, 255, 20, 0.3); }
-          50% { border-color: rgba(57, 255, 20, 0.8); }
-          100% { border-color: rgba(57, 255, 20, 0.3); }
+          0% { border-color: rgba(57, 255, 20, 0.4); }
+          50% { border-color: rgba(57, 255, 20, 0.9); }
+          100% { border-color: rgba(57, 255, 20, 0.4); }
         }
         @keyframes pulseActiveBorder {
-          0% { border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2), 0 8px 25px rgba(255, 215, 0, 0.1); }
-          50% { border-color: rgba(255, 215, 0, 1); box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.4), 0 8px 30px rgba(255, 215, 0, 0.25); }
-          100% { border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2), 0 8px 25px rgba(255, 215, 0, 0.1); }
+          0% { border-color: rgba(255, 215, 0, 0.6); box-shadow: inset 0 0 50px rgba(255, 215, 0, 0.15), 0 0 0 1px rgba(255, 215, 0, 0.3), 0 8px 25px rgba(255, 215, 0, 0.15); }
+          50% { border-color: rgba(255, 215, 0, 1); box-shadow: inset 0 0 50px rgba(255, 215, 0, 0.25), 0 0 0 2px rgba(255, 215, 0, 0.6), 0 8px 30px rgba(255, 215, 0, 0.25); }
+          100% { border-color: rgba(255, 215, 0, 0.6); box-shadow: inset 0 0 50px rgba(255, 215, 0, 0.15), 0 0 0 1px rgba(255, 215, 0, 0.3), 0 8px 25px rgba(255, 215, 0, 0.15); }
         }
         .match-card-accent {
           width: 4px;
@@ -680,7 +684,7 @@ function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches
               {settledBallots.map((ballot: any) => {
                 const match = matches.find((m: any) => m.id === ballot.match_id);
                 const topScorerPts = (ballot.predicted_top_scorer_id && match?.top_scorer_id && ballot.predicted_top_scorer_id === match.top_scorer_id) ? 3 : 0;
-                
+
                 const matchPollIds = (match?.custom_polls || []).map((cp: any) => cp.id);
                 const userAnswers = allPollAnswers?.filter((pa: any) => pa.user_id === user.id && matchPollIds.includes(pa.poll_id)) || [];
                 const pollPts = userAnswers.reduce((acc: number, pa: any) => {
