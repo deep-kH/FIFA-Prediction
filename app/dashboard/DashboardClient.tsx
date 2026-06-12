@@ -179,7 +179,7 @@ export default function DashboardClient({
                 <li><strong>Correct Match Outcome</strong> (Win/Draw/Loss, wrong score): +2 pts</li>
                 <li><strong>Home Team Goals Match:</strong> +1 pt <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(consolation if you nail a team&apos;s goals)</span></li>
                 <li><strong>Away Team Goals Match:</strong> +1 pt</li>
-                <li><strong>Correct Top Match Scorer:</strong> +3 pts</li>
+                <li><strong>Correct PLayer of the Match:</strong> +3 pts</li>
                 <li><strong>Bonus MCQ Polls:</strong> +2 pts per correct answer</li>
               </ul>
               <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--border-default)' }}>

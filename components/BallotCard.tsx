@@ -36,6 +36,7 @@ export default function BallotCard({
   const [error, setError] = useState<string | null>(null)
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0 })
   const [showReveal, setShowReveal] = useState(false)
+  const [expandedReveal, setExpandedReveal] = useState<Record<string, boolean>>({})
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const kickoff = new Date(match.kickoff_time)
@@ -262,7 +263,7 @@ export default function BallotCard({
           </div>
           {isLocked && isCompleted && match.top_scorer ? (
             <div className="ballot-result-reveal">
-              <span>⚽ Official Top Scorer: <strong>{match.top_scorer.name}</strong></span>
+              <span>Player of the Match: <strong>{match.top_scorer.name}</strong></span>
               {existingBallot?.predicted_top_scorer_id === match.top_scorer_id
                 ? <span className="badge badge-green">+3 pts ✓</span>
                 : <span className="badge badge-gray">0 pts</span>}
@@ -351,7 +352,7 @@ export default function BallotCard({
         <div style={{ marginTop: '16px', paddingTop: '20px', borderTop: '2px dashed var(--border-default)' }}>
           <div className="slant-block" style={{ alignSelf: 'flex-start', padding: '4px 12px 4px 0', marginBottom: '16px' }}>
             <p className="ballot-section-title hud-header" style={{ margin: 0, color: 'var(--cup-red)' }}>
-              <Eye size={16} /> Whistleblower Reveal
+              <Eye size={16} /> Friend's Predictions
             </p>
           </div>
 
@@ -365,22 +366,25 @@ export default function BallotCard({
                 const userPollAnswersForReveal = allPollAnswers.filter(
                   (pa: any) => pa.user_id === b.user_id && matchPollIds.includes(pa.poll_id)
                 )
-
+                const isExpanded = expandedReveal[b.id] || false
                 return (
                   <div key={b.id} style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px' }}>
                     {/* Header: avatar, name, score prediction, points */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <button 
+                      onClick={() => setExpandedReveal(prev => ({ ...prev, [b.id]: !prev[b.id] }))}
+                      style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div className="lb-avatar" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
                           {b.profiles?.avatar_letter || '?'}
                         </div>
-                        <span style={{ fontSize: '14px', fontWeight: 700 }}>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
                           {b.profiles?.display_name || 'Unknown'}
                           {b.user_id === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
                         </span>
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px' }}>
+                        <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px', color: 'var(--text-primary)' }}>
                           {b.predicted_home_score} - {b.predicted_away_score}
                         </span>
                         {isCompleted && (
@@ -388,54 +392,85 @@ export default function BallotCard({
                             +{b.points_earned || 0}
                           </span>
                         )}
+                        <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>
+                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </span>
                       </div>
-                    </div>
+                    </button>
 
-                    {/* Point breakdown badges */}
-                    {isCompleted && (
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px', paddingLeft: '42px' }}>
-                        {(b.score_points_earned || 0) > 0 && (
-                          <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                            {b.score_points_earned === 5 ? 'Exact' : 'Outcome'}
-                          </span>
-                        )}
-                        {(b.team_points_earned || 0) > 0 && (
-                          <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                            Team +{b.team_points_earned}
-                          </span>
-                        )}
-                        {(b.accuracy_bonus_earned || 0) > 0 && (
-                          <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                            {b.accuracy_rate?.toFixed(0)}% → Bonus +{b.accuracy_bonus_earned}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Poll Answers */}
-                    {userPollAnswersForReveal.length > 0 && (
-                      <div style={{ marginTop: '10px', paddingLeft: '42px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {(match.custom_polls || []).map((poll: any) => {
-                          const answer = userPollAnswersForReveal.find((pa: any) => pa.poll_id === poll.id)
-                          if (!answer) return null
-                          const optKey = `option_${answer.selected_option.toLowerCase()}` as keyof typeof poll
-                          const optionText = poll[optKey] || answer.selected_option
-                          const isCorrect = isCompleted && poll.correct_option === answer.selected_option
-
-                          return (
-                            <div key={poll.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px' }}>
-                              <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Q:</span>
-                              <span className="text-secondary" style={{ flex: 1 }}>
-                                {poll.question.length > 40 ? poll.question.slice(0, 40) + '…' : poll.question}
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+                        
+                        {/* Top Scorer Prediction */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px', marginBottom: '8px' }}>
+                          <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Top Scorer:</span>
+                          <span className="text-secondary" style={{ flex: 1 }}>
+                            {b.predicted_top_scorer_id 
+                              ? players.find(p => p.id === b.predicted_top_scorer_id)?.name || 'Unknown Player'
+                              : 'None selected'
+                            }
+                            {isCompleted && b.predicted_top_scorer_id && (
+                              <span style={{ marginLeft: '6px' }}>
+                                {b.predicted_top_scorer_id === match.top_scorer_id ? '✓' : '✗'}
                               </span>
-                              <span className={`badge ${isCompleted ? (isCorrect ? 'badge-green' : 'badge-red') : 'badge-gray'}`}
-                                style={{ fontSize: '10px', padding: '1px 6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                {answer.selected_option}: {optionText.length > 15 ? optionText.slice(0, 15) + '…' : optionText}
-                                {isCompleted && (isCorrect ? ' ✓' : ' ✗')}
+                            )}
+                          </span>
+                        </div>
+
+                        {/* Poll Answers */}
+                        {userPollAnswersForReveal.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                            {(match.custom_polls || []).map((poll: any) => {
+                              const answer = userPollAnswersForReveal.find((pa: any) => pa.poll_id === poll.id)
+                              if (!answer) return null
+                              const optKey = `option_${answer.selected_option.toLowerCase()}` as keyof typeof poll
+                              const optionText = poll[optKey] || answer.selected_option
+                              const isCorrect = isCompleted && poll.correct_option === answer.selected_option
+
+                              return (
+                                <div key={poll.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px' }}>
+                                  <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Q:</span>
+                                  <span className="text-secondary" style={{ flex: 1 }}>
+                                    {poll.question.length > 40 ? poll.question.slice(0, 40) + '…' : poll.question}
+                                  </span>
+                                  <span className={`badge ${isCompleted ? (isCorrect ? 'badge-green' : 'badge-red') : 'badge-gray'}`}
+                                    style={{ fontSize: '10px', padding: '1px 6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                    {answer.selected_option}: {optionText.length > 15 ? optionText.slice(0, 15) + '…' : optionText}
+                                    {isCompleted && (isCorrect ? ' ✓' : ' ✗')}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Point breakdown badges */}
+                        {isCompleted && (
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px' }}>
+                            {(b.score_points_earned || 0) > 0 && (
+                              <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                {b.score_points_earned === 5 ? 'Exact Score (+5)' : 'Outcome (+2)'}
                               </span>
-                            </div>
-                          )
-                        })}
+                            )}
+                            {(b.team_points_earned || 0) > 0 && (
+                              <span className="badge badge-blue" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                Team Goals (+{b.team_points_earned})
+                              </span>
+                            )}
+                            {b.predicted_top_scorer_id === match.top_scorer_id && match.top_scorer_id && (
+                              <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                Scorer (+3)
+                              </span>
+                            )}
+                            {(b.accuracy_bonus_earned || 0) > 0 && (
+                              <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                {b.accuracy_rate?.toFixed(0)}% Accuracy Bonus (+{b.accuracy_bonus_earned})
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                     )}
                   </div>
