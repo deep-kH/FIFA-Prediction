@@ -99,8 +99,8 @@ export default function BallotCard({
       const ballotPayload = {
         user_id: profile.id,
         match_id: match.id,
-        predicted_home_score: homeScore !== '' ? parseInt(homeScore) : null,
-        predicted_away_score: awayScore !== '' ? parseInt(awayScore) : null,
+        predicted_home_score: homeScore !== '' ? parseInt(homeScore) : 0,
+        predicted_away_score: awayScore !== '' ? parseInt(awayScore) : 0,
         predicted_top_scorer_id: topScorerId ? parseInt(topScorerId) : null,
       }
 
