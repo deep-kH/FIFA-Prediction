@@ -1,16 +1,11 @@
 import { ImageResponse } from 'next/og'
 import { createClient } from '@supabase/supabase-js'
-import fs from 'fs'
-import path from 'path'
 
 export const revalidate = 3600 // Cache for 1 hour to save Supabase reads
 
 export const alt = 'TACT-IX Match Preview'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
-
-// Use Node.js runtime so we can use fs.readFileSync without edge limitations
-export const runtime = 'nodejs'
 
 export default async function Image({ params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = await params
