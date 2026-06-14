@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
   keywords: 'FIFA World Cup 2026, fantasy football, prediction, friends',
   // Replace this with your actual production URL when deployed
-  metadataBase: new URL('http://localhost:3000'),
+  metadataBase: new URL('http://tact-11-jade.vercel.app'),
   openGraph: {
     title: 'TACT-IX',
     description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
