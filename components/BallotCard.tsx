@@ -19,8 +19,8 @@ interface Props {
 export default function BallotCard({
   match, profile, existingBallot, existingPollAnswers = [],
   allBallots = [], allPollAnswers = [],
-  onBallotSaved, onPollAnswerSaved
-}: Props) {
+  onBallotSaved, onPollAnswerSaved, onProfileUpdated
+}: Props & { onProfileUpdated?: (profile: Profile) => void }) {
   const supabase = createClient()
   const [homeScore, setHomeScore] = useState<string>(existingBallot?.predicted_home_score?.toString() ?? '')
   const [awayScore, setAwayScore] = useState<string>(existingBallot?.predicted_away_score?.toString() ?? '')
@@ -120,9 +120,22 @@ export default function BallotCard({
           p_card_type: activeCard
         })
         if (rpcError) throw new Error(`Wildcard Error: ${rpcError.message}`)
+        
         // We mutate the local state to reflect the change immediately so subsequent saves don't re-trigger it
         ballotData.played_card = activeCard
         onBallotSaved(ballotData)
+
+        // Optimistically update the frontend inventory immediately to prevent using one card twice
+        if (onProfileUpdated) {
+          const newProfile = { ...profile }
+          // Refund old card if any
+          if (existingBallot?.played_card === 'MULTIPLIER') newProfile.inventory_multiplier++
+          if (existingBallot?.played_card === 'SAFETY_NET') newProfile.inventory_safety++
+          // Deduct new card
+          if (activeCard === 'MULTIPLIER') newProfile.inventory_multiplier--
+          if (activeCard === 'SAFETY_NET') newProfile.inventory_safety--
+          onProfileUpdated(newProfile)
+        }
       }
 
       // Upsert poll answers
@@ -219,8 +232,9 @@ export default function BallotCard({
         </div>
       )}
 
-      {/* ── PREDICTION FORM ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* ── PREDICTION FORM (HIDDEN IF COMPLETED) ── */}
+      {!isCompleted && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         {/* Score Prediction */}
         <div className="ballot-section">
@@ -336,14 +350,18 @@ export default function BallotCard({
           </div>
         )}
       </div>
+      )}
 
-      {/* Gamification Wildcards (Equip UI) */}
+      {/* Gamification Wildcards (Equip UI - HIDDEN IF COMPLETED) */}
       {!isLocked && (profile.inventory_multiplier > 0 || profile.inventory_safety > 0 || activeCard !== 'NONE') && (
         <div className="ballot-section" style={{ padding: '16px', background: 'rgba(20,20,20,0.4)', borderRadius: '12px', border: '1px dashed var(--border-default)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <span style={{ fontSize: '18px' }}>🃏</span>
             <p style={{ fontSize: '14px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Wildcards</p>
           </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+            <strong>Streaks:</strong> Predict with &ge; 30% accuracy to build your streak. Multiplier cards are awarded at streak multiples of 5! A skipped match or &lt; 30% accuracy resets your streak to 0.
+          </p>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             {/* Multiplier Card */}
             {(profile.inventory_multiplier > 0 || activeCard === 'MULTIPLIER') && (
@@ -361,7 +379,7 @@ export default function BallotCard({
                   <span style={{ fontSize: '12px', fontWeight: 800, color: activeCard === 'MULTIPLIER' ? '#8A2BE2' : 'var(--text-primary)' }}>Halal Ball</span>
                 </div>
                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                  Double points if accuracy ≥ 80%. Multiplies by 0.75x if missed.
+                  Double points if accuracy ≥ 60%. Multiplies by 0.75x if accuracy ≤ 40%.
                 </p>
               </button>
             )}
@@ -382,7 +400,7 @@ export default function BallotCard({
                   <span style={{ fontSize: '12px', fontWeight: 800, color: activeCard === 'SAFETY_NET' ? 'var(--cup-gold)' : 'var(--text-primary)' }}>Haram Ball</span>
                 </div>
                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                  Guarantees 2.50 points and protects streak.
+                  Adds a flat 5.5 bonus points to your final score.
                 </p>
               </button>
             )}
@@ -532,7 +550,12 @@ export default function BallotCard({
                             )}
                             {(b.accuracy_bonus_earned || 0) > 0 && (
                               <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                                {b.accuracy_rate?.toFixed(0)}% Accuracy Bonus (+{b.accuracy_bonus_earned})
+                                Bonus (+{b.accuracy_bonus_earned})
+                              </span>
+                            )}
+                            {b.accuracy_rate > 0 && (
+                              <span className="badge badge-gray" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                {b.accuracy_rate?.toFixed(0)}% Accuracy
                               </span>
                             )}
                           </div>

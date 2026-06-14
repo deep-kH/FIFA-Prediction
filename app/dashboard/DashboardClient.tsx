@@ -26,14 +26,13 @@ export default function DashboardClient({
 }: Props) {
   const [activeTab, setActiveTab] = useState<'matches' | 'leaderboard' | 'admin'>('matches')
   const [leaderboard, setLeaderboard] = useState(initialLeaderboard)
-  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(
-    matches.find(m => !m.is_completed)?.id || null
-  )
+  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
   const [ballots, setBallots] = useState<Ballot[]>(userBallots)
   const [pollAnswers, setPollAnswers] = useState<PollAnswer[]>(userPollAnswers)
   const [profileModalUser, setProfileModalUser] = useState<any | null>(null)
   const [showProfileEdit, setShowProfileEdit] = useState(false)
   const [showWildcardInfo, setShowWildcardInfo] = useState(false)
+  const [showStreakInfo, setShowStreakInfo] = useState(false)
   const [currentProfile, setCurrentProfile] = useState(profile)
 
   const supabase = createClient()
@@ -83,6 +82,21 @@ export default function DashboardClient({
         return updated
       }
       return [...prev, ballot]
+    })
+    setSelectedMatchId(null)
+  }
+
+  const handleProfileUpdated = (updatedProfile: any) => {
+    setCurrentProfile(updatedProfile)
+    // Also update leaderboard optimistically if they are in it
+    setLeaderboard(prev => {
+      const exists = prev.findIndex((p: any) => p.id === updatedProfile.id)
+      if (exists >= 0) {
+        const arr = [...prev]
+        arr[exists] = { ...arr[exists], ...updatedProfile }
+        return arr
+      }
+      return prev
     })
   }
 
@@ -137,7 +151,13 @@ export default function DashboardClient({
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <StreakFlame streak={currentProfile.current_streak} />
+              <button 
+                onClick={() => setShowStreakInfo(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                title="View Streak Rules"
+              >
+                <StreakFlame streak={currentProfile.current_streak} />
+              </button>
               <button
                 onClick={() => setShowProfileEdit(true)}
                 className="sidebar-avatar"
@@ -189,6 +209,8 @@ export default function DashboardClient({
             allPollAnswers={pollAnswers}
             onBallotSaved={handleBallotSaved}
             onPollAnswerSaved={handlePollAnswerSaved}
+            onProfileUpdated={handleProfileUpdated}
+            leaderboard={leaderboard}
           />
         )}
 
@@ -259,6 +281,7 @@ export default function DashboardClient({
 
       {/* Wildcard Info Modal */}
       {showWildcardInfo && <WildcardInfoModal onClose={() => setShowWildcardInfo(false)} />}
+      {showStreakInfo && <StreakInfoModal onClose={() => setShowStreakInfo(false)} />}
 
       <style jsx>{`
         .dashboard-layout {
@@ -399,7 +422,7 @@ export default function DashboardClient({
 }
 
 // ─── MATCHES TAB ───────────────────────────────────────────
-function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, allBallots, allPollAnswers, onBallotSaved, onPollAnswerSaved }: any) {
+function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, allBallots, allPollAnswers, onBallotSaved, onPollAnswerSaved, onProfileUpdated, leaderboard }: any) {
   const [showCompleted, setShowCompleted] = useState(false)
   const upcoming = matches.filter((m: any) => !m.is_completed)
   const completed = matches.filter((m: any) => m.is_completed)
@@ -407,6 +430,23 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
 
   const toggleMatch = (matchId: number) => {
     setSelectedMatchId(selectedMatchId === matchId ? null : matchId)
+  }
+
+  const handleShareMatch = async (e: any, match: any) => {
+    e.stopPropagation();
+    const emojis = ['🥇', '🥈', '🥉'];
+    const top3 = leaderboard.slice(0, 3).map((l: any, i: number) => `${emojis[i]}. ${l.display_name} (${Number(l.total_points).toFixed(2)} pts),`).join('\n');
+    const text = `Predict the FIFA World Cup match between *${match.home_team?.name}* and *${match.away_team?.name}* on TACT-IX!\n\nThe current leaders are:\n${top3}\n\nPredict now at ${window.location.origin}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'TACT-IX Match Prediction', text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        alert('Share message copied to clipboard!');
+      }
+    } catch (err) {
+      console.log('Share canceled or failed', err);
+    }
   }
 
   const renderMatchCard = (match: any) => {
@@ -447,6 +487,17 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
             {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
             {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓</span>}
             {!isLocked && !hasBallot && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Pending</span>}
+            
+            {profile.is_admin && (
+              <button 
+                onClick={(e) => handleShareMatch(e, match)} 
+                className="btn btn-ghost btn-sm" 
+                title="Share Match"
+                style={{ marginLeft: 'auto', padding: '0 6px', height: '24px', minHeight: '24px', fontSize: '12px' }}
+              >
+                Share
+              </button>
+            )}
           </div>
 
           {/* Predicted / Actual scores */}
@@ -742,11 +793,6 @@ function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches
                           Polls +{pollPts.toFixed(2)}
                         </span>
                       )}
-                      {ballot.accuracy_rate > 0 && (
-                        <span className="badge badge-gray" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                          {ballot.accuracy_rate.toFixed(0)}% acc
-                        </span>
-                      )}
                       {(ballot.accuracy_bonus_earned || 0) > 0 && (
                         <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px' }}>
                           Bonus +{ballot.accuracy_bonus_earned}
@@ -917,8 +963,8 @@ function WildcardInfoModal({ onClose }: { onClose: () => void }) {
             </p>
             <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li><strong>How to Unlock:</strong> Hit a <strong>5-match prediction streak</strong>.</li>
-              <li><strong>The Reward:</strong> If your prediction accuracy is <strong>≥ 80%</strong>, your <strong>total points are doubled (2.0x)</strong>.</li>
-              <li><strong>The Risk:</strong> If your accuracy is below 80%, you are penalized and receive only <strong>0.75x</strong> of the points you scraped together.</li>
+              <li><strong>The Reward:</strong> If your prediction accuracy is <strong>&ge; 60%</strong>, your <strong>total points are doubled (2.0x)</strong>.</li>
+              <li><strong>The Risk:</strong> If your accuracy is <strong>&le; 40%</strong>, you are penalized and receive only <strong>0.75x</strong> of your points!</li>
             </ul>
           </div>
 
@@ -929,11 +975,11 @@ function WildcardInfoModal({ onClose }: { onClose: () => void }) {
               <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--cup-gold)' }}>The Haram Ball</h3>
             </div>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
-              A massive insurance policy for chaotic, unpredictable knockout games.
+              A massive points injection for chaotic, unpredictable knockout games.
             </p>
             <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li><strong>How to Unlock:</strong> Achieved <em>exclusively</em> by hitting <strong>100% Accuracy</strong> on a single match.</li>
-              <li><strong>The Safety Net:</strong> If your predictions score less than 2.50 points, this card automatically bumps your score to a guaranteed <strong>2.50 points</strong>. It also completely protects your prediction streak from resetting, even if your accuracy drops below 25%!</li>
+              <li><strong>The Reward:</strong> Automatically adds a flat <strong>+5.5 bonus points</strong> to your final score for that match!</li>
             </ul>
           </div>
 
@@ -944,6 +990,40 @@ function WildcardInfoModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+      </div>
+    </div>
+  )
+}
+
+function StreakInfoModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1000 }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', padding: '30px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            Prediction Streaks
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ padding: '16px', background: 'linear-gradient(135deg, rgba(200,200,200,0.05), rgba(150,150,150,0.05))', borderRadius: '12px', border: '1px solid rgba(200,200,200,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '24px' }}>🔥</span>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Rules of the Streak</h3>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '12px' }}>
+              Maintain high accuracy to build your streak and earn wildcards!
+            </p>
+            <ul style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <li><strong>How to Build:</strong> Predict with <strong>&ge; 30% accuracy</strong> to increase your streak by 1.</li>
+              <li><strong>The Risk:</strong> If your accuracy is <strong>&lt; 30%</strong>, or if you <strong>skip a match</strong>, your streak completely resets to 0.</li>
+              <li><strong>The Reward:</strong> For every multiple of 5 on your streak (5, 10, 15...), you earn a Halal Ball wildcard!</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   )
