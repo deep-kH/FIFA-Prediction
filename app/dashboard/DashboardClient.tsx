@@ -436,7 +436,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
     e.stopPropagation();
     const emojis = ['🥇', '🥈', '🥉'];
     const top3 = leaderboard.slice(0, 3).map((l: any, i: number) => `${emojis[i]}. ${l.display_name} (${Number(l.total_points).toFixed(2)} pts),`).join('\n');
-    const text = `Predict the FIFA World Cup match between *${match.home_team?.name}* and *${match.away_team?.name}* on TACT-IX!\n\nThe current leaders are:\n${top3}\n\nPredict now at ${window.location.origin}`;
+    const text = `Predict the FIFA World Cup match between *${match.home_team?.name}* and *${match.away_team?.name}* on TACT-IX!\n\nThe current leaders are:\n${top3}\n\nPredict now at ${window.location.origin}/match/${match.id}`;
     try {
       if (navigator.share) {
         await navigator.share({ title: 'TACT-IX Match Prediction', text });

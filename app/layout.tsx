@@ -5,10 +5,18 @@ export const metadata: Metadata = {
   title: 'TACT-IX',
   description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
   keywords: 'FIFA World Cup 2026, fantasy football, prediction, friends',
+  // Replace this with your actual production URL when deployed
+  metadataBase: new URL('http://localhost:3000'),
   openGraph: {
     title: 'TACT-IX',
     description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
     type: 'website',
+    siteName: 'TACT-IX',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'TACT-IX',
+    description: 'The private World Cup 2026 fantasy prediction platform for your circle.',
   },
 }
 
