@@ -8,15 +8,20 @@ export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default async function Image({ params }: { params: Promise<{ matchId: string }> }) {
-  const { matchId } = await params
+  try {
+    const { matchId } = await params
 
-  // Use raw supabase-js to avoid cookie requirements in the edge/OG generation environment
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    
+    if (!supabaseKey) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is missing in environment variables!')
+    }
 
-  // Fetch match details
-  const { data: match, error } = await supabase
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Fetch match details
+    const { data: match, error } = await supabase
     .from('matches')
     .select('*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)')
     .eq('id', matchId)
@@ -37,10 +42,11 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
   const formattedDate = kickoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const formattedTime = kickoff.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
-  // Load the local favicon safely on Vercel using import.meta.url
-  const logoData = await fetch(new URL('../../favicon.ico', import.meta.url)).then((res) => res.arrayBuffer())
+    // Fetch the local favicon using the absolute deployment URL to bypass Vercel edge filesystem limitations
+    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+    const logoData = await fetch(`${baseUrl}/favicon.ico`).then((res) => res.arrayBuffer())
 
-  return new ImageResponse(
+    return new ImageResponse(
     (
       <div
         style={{
@@ -105,7 +111,17 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
           Predict the exact scoreline & win points!
         </div>
       </div>
-    ),
-    { ...size }
-  )
+      ),
+      { ...size }
+    )
+  } catch (err: any) {
+    return new ImageResponse(
+      (
+        <div style={{ background: '#0A0C10', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+          <h1 style={{ color: '#ff4444', fontSize: 40, fontFamily: 'sans-serif' }}>Error: {err.message}</h1>
+        </div>
+      ),
+      { ...size }
+    )
+  }
 }
