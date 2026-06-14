@@ -812,7 +812,7 @@ function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches
                       )}
                       {topScorerPts > 0 && (
                         <span className="badge" style={{ background: '#8A2BE2', color: 'white', fontSize: '10px', padding: '2px 6px' }}>
-                          Top Scorer +{topScorerPts.toFixed(2)}
+                          POP +{topScorerPts.toFixed(2)}
                         </span>
                       )}
                       {pollPts > 0 && (
