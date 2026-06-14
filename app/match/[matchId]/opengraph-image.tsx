@@ -42,11 +42,8 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
   const formattedDate = kickoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const formattedTime = kickoff.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
-  // Load the local favicon directly from the filesystem (doesn't affect any API limits!)
-  const logoPath = path.join(process.cwd(), 'app', 'favicon.ico')
-  const logoBuffer = fs.readFileSync(logoPath)
-  // Even though the file ends in .ico, it's actually a PNG file, which Satori loves.
-  const logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`
+  // Load the local favicon safely on Vercel using import.meta.url
+  const logoData = await fetch(new URL('../../favicon.ico', import.meta.url)).then((res) => res.arrayBuffer())
 
   return new ImageResponse(
     (
@@ -66,7 +63,7 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
       >
         {/* TACT-IX Branding Top */}
         <div style={{ position: 'absolute', top: 40, display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <img src={logoBase64} width={64} height={64} style={{ borderRadius: '1px' }} />
+          <img src={logoData as any} width={64} height={64} style={{ borderRadius: '1px' }} />
           <div style={{
             background: '#F5C842',
             color: '#0A0C10',

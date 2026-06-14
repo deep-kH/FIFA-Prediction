@@ -151,7 +151,7 @@ export default function DashboardClient({
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button 
+              <button
                 onClick={() => setShowStreakInfo(true)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 title="View Streak Rules"
@@ -435,7 +435,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
   const handleShareMatch = async (e: any, match: any) => {
     e.stopPropagation();
     const emojis = ['🥇', '🥈', '🥉'];
-    const top3 = leaderboard.slice(0, 3).map((l: any, i: number) => `${emojis[i]}. ${l.display_name} (${Number(l.total_points).toFixed(2)} pts),`).join('\n');
+    const top3 = leaderboard.slice(0, 3).map((l: any, i: number) => `${emojis[i]} ${l.display_name} (${Number(l.total_points).toFixed(2)} pts),`).join('\n');
     const text = `Predict the FIFA World Cup match between *${match.home_team?.name}* and *${match.away_team?.name}* on TACT-IX!\n\nThe current leaders are:\n${top3}\n\nPredict now at ${window.location.origin}/match/${match.id}`;
     try {
       if (navigator.share) {
@@ -502,12 +502,12 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
             {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
             {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓</span>}
             {!isLocked && !hasBallot && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Pending</span>}
-            
+
             {profile.is_admin && (
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-                <button 
-                  onClick={(e) => handleShareMatch(e, match)} 
-                  className="btn btn-ghost btn-sm" 
+                <button
+                  onClick={(e) => handleShareMatch(e, match)}
+                  className="btn btn-ghost btn-sm"
                   title="Share Match"
                   style={{ padding: '0 6px', height: '24px', minHeight: '24px', fontSize: '12px' }}
                 >
