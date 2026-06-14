@@ -9,7 +9,7 @@ import AdminPanel from '@/components/admin/AdminPanel'
 import ThemeToggle from '@/components/ThemeToggle'
 import {
   Trophy, LogOut, Shield, Zap, Pencil,
-  ChevronDown, ChevronUp, User, BarChart2, X
+  ChevronDown, ChevronUp, User, BarChart2, X, Trash2
 } from 'lucide-react'
 
 interface Props {
@@ -449,6 +449,21 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
     }
   }
 
+  const handleDeleteMatch = async (e: any, match: any) => {
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to completely erase the match between ${match.home_team?.name} and ${match.away_team?.name}? This will permanently delete all polls and ballots associated with it!`)) return;
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('matches').delete().eq('id', match.id);
+      if (error) throw error;
+      alert('Match deleted successfully.');
+      window.location.reload();
+    } catch (err: any) {
+      alert(`Error deleting match: ${err.message}`);
+    }
+  }
+
   const renderMatchCard = (match: any) => {
     const isExpanded = selectedMatchId === match.id
     const kickoff = new Date(match.kickoff_time)
@@ -489,14 +504,26 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
             {!isLocked && !hasBallot && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Pending</span>}
             
             {profile.is_admin && (
-              <button 
-                onClick={(e) => handleShareMatch(e, match)} 
-                className="btn btn-ghost btn-sm" 
-                title="Share Match"
-                style={{ marginLeft: 'auto', padding: '0 6px', height: '24px', minHeight: '24px', fontSize: '12px' }}
-              >
-                Share
-              </button>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                <button 
+                  onClick={(e) => handleShareMatch(e, match)} 
+                  className="btn btn-ghost btn-sm" 
+                  title="Share Match"
+                  style={{ padding: '0 6px', height: '24px', minHeight: '24px', fontSize: '12px' }}
+                >
+                  Share
+                </button>
+                {!isLocked && (
+                  <button
+                    onClick={(e) => handleDeleteMatch(e, match)}
+                    className="btn btn-ghost btn-sm"
+                    title="Delete Match"
+                    style={{ padding: '0 6px', height: '24px', minHeight: '24px', color: 'var(--cup-red)' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
