@@ -39,16 +39,12 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
   }
 
   const kickoff = new Date(match.kickoff_time)
-  const formattedDate = kickoff.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  const formattedTime = kickoff.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  const formattedDate = kickoff.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })
+  const formattedTime = kickoff.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 
-    // Fetch the local favicon using the absolute production URL to bypass Vercel edge filesystem limitations
-    // We do this explicitly to catch any fetch errors in our try/catch, instead of letting Satori crash the stream.
-    const baseUrl = 'https://tact-11-jade.vercel.app'
-    const logoData = await fetch(`${baseUrl}/favicon.ico`).then((res) => {
-      if (!res.ok) throw new Error(`Failed to fetch logo: ${res.statusText}`)
-      return res.arrayBuffer()
-    })
+    // Load the logo using Next.js native Edge bundling.
+    // This avoids an HTTP network request and loads instantly from memory!
+    const logoData = await fetch(new URL('../../favicon.ico', import.meta.url)).then((res) => res.arrayBuffer())
 
     return new ImageResponse(
     (
@@ -87,7 +83,7 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
         {/* Match Info */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 40 }}>
           <div style={{ fontSize: 32, color: '#888', marginBottom: 50, textTransform: 'uppercase', letterSpacing: '4px', fontWeight: 'bold', display: 'flex' }}>
-            {`${match.stage || 'Group Stage'} • ${formattedDate} ${formattedTime}`}
+            {`${match.stage || 'Group Stage'} • ${formattedDate} ${formattedTime} IST`}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '900px' }}>

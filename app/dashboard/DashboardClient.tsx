@@ -495,7 +495,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           {/* Meta row: date, stage, status badges */}
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }} suppressHydrationWarning>
-              {kickoff.toLocaleDateString()} · {kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {kickoff.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })} · {kickoff.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST
             </span>
             {match.stage && <span className="badge badge-gray" style={{ fontSize: '9px' }}>{match.stage}</span>}
             {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}

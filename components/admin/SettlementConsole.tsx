@@ -108,7 +108,7 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
             <option value="">Choose match...</option>
             {unsettledMatches.map(m => (
               <option key={m.id} value={m.id}>
-                {m.home_team?.flag_emoji} {m.home_team?.name} vs {m.away_team?.flag_emoji} {m.away_team?.name} · {new Date(m.kickoff_time).toLocaleDateString()}
+                {m.home_team?.flag_emoji} {m.home_team?.name} vs {m.away_team?.flag_emoji} {m.away_team?.name} · {new Date(m.kickoff_time).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })} IST
               </option>
             ))}
           </select>
