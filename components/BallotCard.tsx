@@ -232,8 +232,8 @@ export default function BallotCard({
         </div>
       )}
 
-      {/* ── PREDICTION FORM (HIDDEN IF COMPLETED) ── */}
-      {!isCompleted && (
+      {/* ── PREDICTION FORM (HIDDEN IF LOCKED OR COMPLETED) ── */}
+      {!isLocked && !isCompleted && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         {/* Score Prediction */}
@@ -444,64 +444,78 @@ export default function BallotCard({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {allBallots.filter(b => b.match_id === match.id).length === 0 ? (
-              <p className="text-muted" style={{ fontSize: '13px', textAlign: 'center' }}>No predictions submitted for this match.</p>
-            ) : (
-              allBallots.filter(b => b.match_id === match.id).map(b => {
-                // Get this user's poll answers for this match
-                const matchPollIds = (match.custom_polls || []).map((cp: any) => cp.id)
-                const userPollAnswersForReveal = allPollAnswers.filter(
-                  (pa: any) => pa.user_id === b.user_id && matchPollIds.includes(pa.poll_id)
-                )
-                const isExpanded = expandedReveal[b.id] || false
+            {(() => {
+              // Collect all unique user IDs who have either a ballot or a poll answer for this match
+              const matchPollIds = (match.custom_polls || []).map((cp: any) => cp.id)
+              const relevantPollAnswers = allPollAnswers.filter(pa => matchPollIds.includes(pa.poll_id))
+              const relevantBallots = allBallots.filter(b => b.match_id === match.id)
+              
+              const uniqueUserIds = Array.from(new Set([
+                ...relevantBallots.map(b => b.user_id),
+                ...relevantPollAnswers.map(pa => pa.user_id)
+              ]))
+
+              if (uniqueUserIds.length === 0) {
+                return <p className="text-muted" style={{ fontSize: '13px', textAlign: 'center' }}>No predictions submitted for this match.</p>
+              }
+
+              return uniqueUserIds.map(userId => {
+                const b = relevantBallots.find(b => b.user_id === userId)
+                const userPollAnswersForReveal = relevantPollAnswers.filter((pa: any) => pa.user_id === userId)
+                
+                // Get profile from either ballot or poll answer
+                const userProfile = b?.profiles || userPollAnswersForReveal[0]?.profiles || { display_name: 'Unknown', avatar_letter: '?' }
+                const isExpanded = expandedReveal[userId] || false
+
                 return (
-                  <div key={b.id} style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px' }}>
-                    {/* Header: avatar, name, score prediction, points */}
+                  <div key={userId} style={{ padding: '12px', background: 'var(--surface-overlay)', borderRadius: '8px' }}>
                     <button 
-                      onClick={() => setExpandedReveal(prev => ({ ...prev, [b.id]: !prev[b.id] }))}
+                      onClick={() => setExpandedReveal(prev => ({ ...prev, [userId]: !prev[userId] }))}
                       style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div className="lb-avatar" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
-                          {b.profiles?.avatar_letter || '?'}
+                          {userProfile.avatar_letter}
                         </div>
                         <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {b.profiles?.display_name || 'Unknown'}
-                          {b.played_card === 'MULTIPLIER' && <span title="Halal Ball" style={{ marginLeft: '6px' }}>🔥</span>}
-                          {b.played_card === 'SAFETY_NET' && <span title="Haram Ball" style={{ marginLeft: '6px' }}>🛡️</span>}
-                          {b.user_id === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
+                          {userProfile.display_name}
+                          {b?.played_card === 'MULTIPLIER' && <span title="Halal Ball" style={{ marginLeft: '6px' }}>🔥</span>}
+                          {b?.played_card === 'SAFETY_NET' && <span title="Haram Ball" style={{ marginLeft: '6px' }}>🛡️</span>}
+                          {userId === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
                         </span>
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px', color: 'var(--text-primary)' }}>
-                          {b.predicted_home_score} - {b.predicted_away_score}
-                        </span>
-
+                        {b ? (
+                          <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px', color: 'var(--text-primary)' }}>
+                            {b.predicted_home_score} - {b.predicted_away_score}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No Score</span>
+                        )}
                         <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>
                           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </span>
                       </div>
                     </button>
 
-                    {/* Expanded Details */}
                     {isExpanded && (
                       <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-                        
-                        {/* Top Scorer Prediction */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px', marginBottom: '8px' }}>
-                          <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Player of the match:</span>
-                          <span className="text-secondary" style={{ flex: 1 }}>
-                            {b.predicted_top_scorer_id 
-                              ? players.find(p => p.id === b.predicted_top_scorer_id)?.name || 'Unknown Player'
-                              : 'None selected'
-                            }
-                            {isCompleted && b.predicted_top_scorer_id && (
-                              <span style={{ marginLeft: '6px' }}>
-                                {b.predicted_top_scorer_id === match.top_scorer_id ? '✓' : '✗'}
-                              </span>
-                            )}
-                          </span>
-                        </div>
+                        {b && (
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12px', marginBottom: '8px' }}>
+                            <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontWeight: 600 }}>Player of the match:</span>
+                            <span className="text-secondary" style={{ flex: 1 }}>
+                              {b.predicted_top_scorer_id 
+                                ? players.find(p => p.id === b.predicted_top_scorer_id)?.name || 'Unknown Player'
+                                : 'None selected'
+                              }
+                              {isCompleted && b.predicted_top_scorer_id && (
+                                <span style={{ marginLeft: '6px' }}>
+                                  {b.predicted_top_scorer_id === match.top_scorer_id ? '✓' : '✗'}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Poll Answers */}
                         {userPollAnswersForReveal.length > 0 && (
@@ -530,8 +544,7 @@ export default function BallotCard({
                           </div>
                         )}
 
-                        {/* Point breakdown badges */}
-                        {isCompleted && (
+                        {b && isCompleted && (
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px' }}>
                             {(b.score_points_earned || 0) > 0 && (
                               <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
@@ -566,7 +579,7 @@ export default function BallotCard({
                   </div>
                 )
               })
-            )}
+            })()}
           </div>
         </div>
       )}

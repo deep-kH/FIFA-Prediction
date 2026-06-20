@@ -36,17 +36,24 @@ export default async function DashboardPage() {
     .order('total_points', { ascending: false })
     .limit(10000)
 
-  // Fetch ballots (RLS ensures user only gets their own for upcoming matches, but ALL for locked matches)
-  const { data: ballots } = await supabase
-    .from('ballots')
-    .select('*, profiles(id, display_name, avatar_letter)')
-    .limit(10000)
+  // Helper function to fetch all rows across pagination limits
+  async function fetchAll(table: string, select: string) {
+    let allData: any[] = []
+    let from = 0
+    const step = 1000
+    while (true) {
+      const { data } = await supabase.from(table).select(select).range(from, from + step - 1)
+      if (!data || data.length === 0) break
+      allData = allData.concat(data)
+      if (data.length < step) break
+      from += step
+    }
+    return allData
+  }
 
-  // Fetch poll answers (RLS identical to ballots)
-  const { data: pollAnswers } = await supabase
-    .from('poll_answers')
-    .select('*, profiles(id, display_name, avatar_letter)')
-    .limit(10000)
+  // Fetch ballots and poll answers using pagination to bypass the 1000 row server limit
+  const ballots = await fetchAll('ballots', '*, profiles(id, display_name, avatar_letter)')
+  const pollAnswers = await fetchAll('poll_answers', '*, profiles(id, display_name, avatar_letter)')
 
   return (
     <DashboardClient
