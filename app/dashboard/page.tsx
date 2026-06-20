@@ -34,16 +34,19 @@ export default async function DashboardPage() {
     .from('profiles')
     .select('id, display_name, avatar_letter, total_points, is_admin, current_streak')
     .order('total_points', { ascending: false })
+    .limit(10000)
 
   // Fetch ballots (RLS ensures user only gets their own for upcoming matches, but ALL for locked matches)
   const { data: ballots } = await supabase
     .from('ballots')
     .select('*, profiles(id, display_name, avatar_letter)')
+    .limit(10000)
 
   // Fetch poll answers (RLS identical to ballots)
   const { data: pollAnswers } = await supabase
     .from('poll_answers')
     .select('*, profiles(id, display_name, avatar_letter)')
+    .limit(10000)
 
   return (
     <DashboardClient
