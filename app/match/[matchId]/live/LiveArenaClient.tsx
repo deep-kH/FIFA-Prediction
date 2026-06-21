@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Profile } from '@/types/database'
-import { Send, ArrowLeft, Heart, Zap, Flame, Clock, BarChart2, Plus, Loader2, X } from 'lucide-react'
+import { Send, ArrowLeft, Heart, Zap, Flame, Clock, BarChart2, Plus, Loader2, X, Share2, Check } from 'lucide-react'
 import Link from 'next/link'
 import LiveGraphicsEngine from '@/components/LiveGraphicsEngine'
 
@@ -16,7 +16,7 @@ interface LiveEvent {
   id: number
   match_id: number
   user_id: string
-  event_type: 'CHAT' | 'REACTION' | 'POLL_DROP'
+  event_type: 'CHAT' | 'REACTION' | 'FLASH_POLL'
   content: string | null
   embedded_poll_id: number | null
   created_at: string
@@ -34,9 +34,10 @@ export default function LiveArenaClient({ match, profile }: Props) {
   const [events, setEvents] = useState<LiveEvent[]>([])
   const [chatInput, setChatInput] = useState('')
   const [onlineCount, setOnlineCount] = useState(0)
-  const [activePoll, setActivePoll] = useState<any | null>(null)
-  const [pollAnswered, setPollAnswered] = useState(false)
-  const [pollVotes, setPollVotes] = useState<any[]>([])
+  // Track multiple active polls simultaneously
+  const [activePolls, setActivePolls] = useState<Record<number, any>>({})
+  const [answeredPolls, setAnsweredPolls] = useState<Record<number, boolean>>({})
+  const [pollVotesMap, setPollVotesMap] = useState<Record<number, any[]>>({})
   const [allPolls, setAllPolls] = useState<any[]>([])
   const [allPollVotes, setAllPollVotes] = useState<any[]>([])
   
@@ -50,23 +51,40 @@ export default function LiveArenaClient({ match, profile }: Props) {
   const [newPollOptions, setNewPollOptions] = useState(['Yes', 'No', '', ''])
   const [newPollDuration, setNewPollDuration] = useState(60)
   const [creatingPoll, setCreatingPoll] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   
   const eventsEndRef = useRef<HTMLDivElement>(null)
 
-  const [pollTimeRemaining, setPollTimeRemaining] = useState(0)
+  const [pollTimeRemainingMap, setPollTimeRemainingMap] = useState<Record<number, number>>({})
+  // Timer for all active polls
   useEffect(() => {
-    if (!activePoll) return
+    const pollIds = Object.keys(activePolls).map(Number)
+    if (pollIds.length === 0) return
     const interval = setInterval(() => {
-      const remaining = new Date(activePoll.closes_at).getTime() - Date.now()
-      if (remaining <= 0) {
-        setPollTimeRemaining(0)
-        clearInterval(interval)
-      } else {
-        setPollTimeRemaining(remaining)
+      const now = Date.now()
+      const updates: Record<number, number> = {}
+      const expired: number[] = []
+      for (const id of pollIds) {
+        const poll = activePolls[id]
+        const remaining = new Date(poll.closes_at).getTime() - now
+        if (remaining <= 0) {
+          expired.push(id)
+          updates[id] = 0
+        } else {
+          updates[id] = remaining
+        }
+      }
+      setPollTimeRemainingMap(prev => ({ ...prev, ...updates }))
+      if (expired.length > 0) {
+        setActivePolls(prev => {
+          const next = { ...prev }
+          expired.forEach(id => delete next[id])
+          return next
+        })
       }
     }, 100)
     return () => clearInterval(interval)
-  }, [activePoll])
+  }, [activePolls])
   
   const graphicsChannelRef = useRef<any>(null)
 
@@ -104,27 +122,35 @@ export default function LiveArenaClient({ match, profile }: Props) {
         setAllPolls(pastPolls || [])
         setAllPollVotes(pastVotes || [])
 
-        // See if there's an active poll
-        const { data: latestPoll } = await supabase.from('live_user_polls')
+        // See if there are any active polls (could be multiple)
+        const { data: activeOpenPolls } = await supabase.from('live_user_polls')
           .select('*')
           .eq('match_id', match.id)
           .gt('closes_at', new Date().toISOString())
           .order('created_at', { ascending: false })
-          .limit(1).single()
         
-        if (latestPoll) {
-          setActivePoll(latestPoll)
-          const { data: existingVote } = await supabase.from('live_user_poll_votes')
-            .select('*')
-            .eq('poll_id', latestPoll.id)
-            .eq('user_id', profile.id)
-            .single()
-          if (existingVote) setPollAnswered(true)
+        if (activeOpenPolls && activeOpenPolls.length > 0) {
+          const pollMap: Record<number, any> = {}
+          const answeredMap: Record<number, boolean> = {}
+          const votesMap: Record<number, any[]> = {}
           
-          const { data: votes } = await supabase.from('live_user_poll_votes')
-            .select('*')
-            .eq('poll_id', latestPoll.id)
-          setPollVotes(votes || [])
+          for (const poll of activeOpenPolls) {
+            pollMap[poll.id] = poll
+            const { data: existingVote } = await supabase.from('live_user_poll_votes')
+              .select('*')
+              .eq('poll_id', poll.id)
+              .eq('user_id', profile.id)
+              .maybeSingle()
+            if (existingVote) answeredMap[poll.id] = true
+            
+            const { data: votes } = await supabase.from('live_user_poll_votes')
+              .select('*')
+              .eq('poll_id', poll.id)
+            votesMap[poll.id] = votes || []
+          }
+          setActivePolls(pollMap)
+          setAnsweredPolls(answeredMap)
+          setPollVotesMap(votesMap)
         }
       } catch (err) {
         console.error(err)
@@ -160,15 +186,18 @@ export default function LiveArenaClient({ match, profile }: Props) {
         const { data: creator } = await supabase.from('profiles').select('*').eq('id', newPoll.creator_id).single()
         newPoll.profiles = creator
         setAllPolls(prev => [...prev, newPoll])
-        setActivePoll(newPoll)
-        setPollVotes([])
-        setPollAnswered(false)
+        // Add to active polls map without replacing existing ones
+        setActivePolls(prev => ({ ...prev, [newPoll.id]: newPoll }))
+        setPollVotesMap(prev => ({ ...prev, [newPoll.id]: [] }))
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_user_poll_votes' }, async (payload) => {
         const newVote = payload.new as any
         const { data: voter } = await supabase.from('profiles').select('*').eq('id', newVote.user_id).single()
         newVote.profiles = voter
-        setPollVotes(prev => [...prev, newVote])
+        setPollVotesMap(prev => ({
+          ...prev,
+          [newVote.poll_id]: [...(prev[newVote.poll_id] || []), newVote]
+        }))
         setAllPollVotes(prev => [...prev, newVote])
       })
       
@@ -203,20 +232,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [events])
 
-  // Poll fuse timer
-  useEffect(() => {
-    if (!activePoll) return
-    const interval = setInterval(() => {
-      const remaining = new Date(activePoll.closes_at).getTime() - Date.now()
-      if (remaining <= 0) {
-        setPollTimeRemaining(0)
-        setActivePoll(null)
-      } else {
-        setPollTimeRemaining(remaining)
-      }
-    }, 100)
-    return () => clearInterval(interval)
-  }, [activePoll])
+  // (Poll timer is handled by the single unified effect above)
 
   const sendReaction = async (emoji: string) => {
     setLastReaction(emoji + ':' + Math.random())
@@ -262,7 +278,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
       await supabase.from('live_room_events').insert({
         match_id: match.id,
         user_id: profile.id,
-        event_type: 'POLL_DROP',
+        event_type: 'FLASH_POLL',
         embedded_poll_id: poll.id,
         content: `Dropped a ${newPollDuration}s Flash Poll!`
       })
@@ -273,15 +289,32 @@ export default function LiveArenaClient({ match, profile }: Props) {
     setNewPollOptions(['Yes', 'No', '', ''])
   }
 
-  const answerPoll = async (optionIdx: number) => {
-    if (!activePoll || pollAnswered) return
-    setPollAnswered(true)
+  const answerPoll = async (pollId: number, optionIdx: number) => {
+    if (answeredPolls[pollId]) return
+    setAnsweredPolls(prev => ({ ...prev, [pollId]: true }))
     
     await supabase.from('live_user_poll_votes').insert({
-      poll_id: activePoll.id,
+      poll_id: pollId,
       user_id: profile.id,
       option_idx: optionIdx
     })
+  }
+
+  const shareMatchRoom = async () => {
+    const url = `${window.location.origin}/match/${match.id}/live`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `Live Arena: ${match.home_team?.name} vs ${match.away_team?.name}`, url })
+      } else {
+        await navigator.clipboard.writeText(url)
+        setLinkCopied(true)
+        setTimeout(() => setLinkCopied(false), 2000)
+      }
+    } catch {
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    }
   }
 
   const kickoffTime = new Date(match.kickoff_time)
@@ -330,19 +363,28 @@ export default function LiveArenaClient({ match, profile }: Props) {
             {onlineCount} {onlineCount === 1 ? 'Player' : 'Players'} Online
           </div>
         </div>
+        {profile.is_admin && (
+          <button onClick={shareMatchRoom} className="btn btn-ghost btn-icon" title="Share match room" style={{ marginLeft: '8px', position: 'relative' }}>
+            {linkCopied ? <Check size={18} color="#00ff00" /> : <Share2 size={18} />}
+          </button>
+        )}
       </header>
 
-      {activePoll && (
-          <div 
-            onClick={() => pollMessageRefs.current[activePoll.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-            style={{
-              position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)',
-              background: 'var(--cup-red)', color: '#fff', padding: '6px 16px', borderRadius: '20px',
-              fontSize: '12px', fontWeight: 800, cursor: 'pointer', zIndex: 20,
-              boxShadow: '0 4px 12px rgba(255, 0, 0, 0.3)', display: 'flex', alignItems: 'center', gap: '8px'
-            }}
-          >
-            <span>⚡ Flash Poll Active: {activePoll.question}</span>
+      {Object.keys(activePolls).length > 0 && (
+          <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+            {Object.values(activePolls).map((poll: any) => (
+              <div key={poll.id}
+                onClick={() => pollMessageRefs.current[poll.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                style={{
+                  background: 'var(--cup-red)', color: '#fff', padding: '5px 14px', borderRadius: '20px',
+                  fontSize: '11px', fontWeight: 800, cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(255, 0, 0, 0.3)', display: 'flex', alignItems: 'center', gap: '6px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <span>⚡ {poll.question}</span>
+              </div>
+            ))}
           </div>
         )}
 
@@ -352,13 +394,15 @@ export default function LiveArenaClient({ match, profile }: Props) {
           {events.map((e, idx) => {
             const isMe = e.user_id === profile.id
 
-            if (e.event_type === 'POLL_DROP') {
+            if (e.event_type === 'FLASH_POLL') {
               const poll = allPolls.find(p => p.id === e.embedded_poll_id)
               if (!poll) return null
               const isClosed = new Date() >= new Date(poll.closes_at)
-              const isActive = activePoll?.id === poll.id
+              const isActive = !!activePolls[poll.id]
+              const thisPollAnswered = !!answeredPolls[poll.id]
+              const thisPollTimeRemaining = pollTimeRemainingMap[poll.id] || 0
               
-              const relevantVotes = isClosed ? allPollVotes.filter(v => v.poll_id === poll.id) : pollVotes
+              const relevantVotes = isClosed ? allPollVotes.filter(v => v.poll_id === poll.id) : (pollVotesMap[poll.id] || [])
               const totalVotes = relevantVotes.length
 
               return (
@@ -370,7 +414,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
                     {!isClosed && isActive && (
                       <>
                         <div style={{ width: '100%', height: '4px', background: 'var(--surface-raised)', borderRadius: '2px', marginBottom: '12px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${(pollTimeRemaining / (poll.duration_seconds * 1000)) * 100}%`, background: 'var(--cup-red)', transition: 'width 0.1s linear' }} />
+                          <div style={{ height: '100%', width: `${(thisPollTimeRemaining / (poll.duration_seconds * 1000)) * 100}%`, background: 'var(--cup-red)', transition: 'width 0.1s linear' }} />
                         </div>
                         <div style={{ display: 'grid', gap: '8px' }}>
                           {poll.options.map((opt: string, i: number) => {
@@ -379,16 +423,16 @@ export default function LiveArenaClient({ match, profile }: Props) {
                             const isMyVote = relevantVotes.find(v => v.user_id === profile.id)?.option_idx === i
 
                             return (
-                              <button key={i} className="btn" onClick={() => answerPoll(i)} disabled={pollAnswered}
+                              <button key={i} className="btn" onClick={() => answerPoll(poll.id, i)} disabled={thisPollAnswered}
                                 style={{
                                   position: 'relative', overflow: 'hidden', justifyContent: 'space-between', padding: '10px 14px',
                                   background: isMyVote ? 'var(--surface-raised)' : 'var(--surface-hover)',
                                   border: isMyVote ? '1px solid var(--cup-gold)' : '1px solid var(--border-default)',
-                                  opacity: pollAnswered && !isMyVote ? 0.7 : 1
+                                  opacity: thisPollAnswered && !isMyVote ? 0.7 : 1
                                 }}>
-                                {pollAnswered && <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${percent}%`, background: 'rgba(255, 215, 0, 0.2)' }} />}
+                                {thisPollAnswered && <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${percent}%`, background: 'rgba(255, 215, 0, 0.2)' }} />}
                                 <span style={{ position: 'relative', zIndex: 1 }}>{opt}</span>
-                                {pollAnswered && <span style={{ position: 'relative', zIndex: 1, fontSize: '12px', fontWeight: 800, color: 'var(--cup-gold)' }}>{percent}%</span>}
+                                {thisPollAnswered && <span style={{ position: 'relative', zIndex: 1, fontSize: '12px', fontWeight: 800, color: 'var(--cup-gold)' }}>{percent}%</span>}
                               </button>
                             )
                           })}

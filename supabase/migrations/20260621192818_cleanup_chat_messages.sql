@@ -1,12 +1,14 @@
--- Trigger function to delete ALL events when a match is completed
+-- Trigger function to delete ONLY chat/reaction events when a match is completed.
+-- POLL_DROP events are preserved so polls and their results remain visible in match history.
 CREATE OR REPLACE FUNCTION purge_chats_on_match_completion()
 RETURNS TRIGGER AS $$
 BEGIN
     -- If is_completed changed from false to true
     IF NEW.is_completed = true AND OLD.is_completed = false THEN
-        -- Delete all events for this match
+        -- Delete only chat and reaction events, preserve poll drop events
         DELETE FROM live_room_events
-        WHERE match_id = NEW.id;
+        WHERE match_id = NEW.id
+          AND event_type IN ('CHAT', 'REACTION', 'SYSTEM');
     END IF;
     RETURN NEW;
 END;
