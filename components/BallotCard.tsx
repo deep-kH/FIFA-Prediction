@@ -479,8 +479,8 @@ export default function BallotCard({
                         </div>
                         <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
                           {userProfile.display_name}
-                          {b?.played_card === 'MULTIPLIER' && <span title="Halal Ball" style={{ marginLeft: '6px' }}>🔥</span>}
-                          {b?.played_card === 'SAFETY_NET' && <span title="Haram Ball" style={{ marginLeft: '6px' }}>🛡️</span>}
+                          {userId === profile.id && b?.played_card === 'MULTIPLIER' && <span title="Halal Ball" style={{ marginLeft: '6px' }}>🔥</span>}
+                          {userId === profile.id && b?.played_card === 'SAFETY_NET' && <span title="Haram Ball" style={{ marginLeft: '6px' }}>🛡️</span>}
                           {userId === profile.id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(You)</span>}
                         </span>
                       </div>
@@ -546,12 +546,12 @@ export default function BallotCard({
 
                         {b && isCompleted && (
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px' }}>
-                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate >= 60 && (
+                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate > 60 && (
                               <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(138,43,226,0.2)', color: '#8A2BE2', border: '1px solid rgba(138,43,226,0.5)' }}>
                                 Halal 2x
                               </span>
                             )}
-                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate <= 40 && (
+                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate < 40 && (
                               <span className="badge badge-red" style={{ fontSize: '10px', padding: '2px 6px' }}>
                                 Halal Penalty 0.75x
                               </span>

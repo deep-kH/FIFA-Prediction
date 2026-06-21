@@ -6,6 +6,7 @@ import { Profile, Match, Ballot, PollAnswer } from '@/types/database'
 import Leaderboard, { StreakFlame } from '@/components/Leaderboard'
 import BallotCard from '@/components/BallotCard'
 import AdminPanel from '@/components/admin/AdminPanel'
+import GlobalPropsTab from '@/components/GlobalPropsTab'
 import ThemeToggle from '@/components/ThemeToggle'
 import {
   Trophy, LogOut, Shield, Zap, Pencil,
@@ -178,6 +179,7 @@ export default function DashboardClient({
         <nav className="topnav-nav">
           {[
             { id: 'matches', label: 'Match Ballots', icon: <Zap size={14} /> },
+            { id: 'futures', label: 'Tournament Props', icon: <Trophy size={14} /> },
             { id: 'leaderboard', label: 'Standings', icon: <BarChart2 size={14} /> },
             ...(profile.is_admin ? [{ id: 'admin', label: 'Admin Center', icon: <Shield size={14} /> }] : []),
           ].map(tab => (
@@ -214,6 +216,10 @@ export default function DashboardClient({
           />
         )}
 
+        {activeTab === 'futures' && (
+          <GlobalPropsTab profile={currentProfile} />
+        )}
+
         {activeTab === 'leaderboard' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="bento-card" style={{ padding: '16px 20px', background: 'rgba(255, 215, 0, 0.05)', borderColor: 'rgba(255, 215, 0, 0.2)' }}>
@@ -226,10 +232,13 @@ export default function DashboardClient({
                 <li><strong>Correct Match Outcome</strong> (Win/Draw/Loss, wrong score): +2 pts</li>
                 <li><strong>Home Team Goals Match:</strong> +1 pt <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(consolation if you nail a team&apos;s goals)</span></li>
                 <li><strong>Away Team Goals Match:</strong> +1 pt</li>
-                <li><strong>Correct PLayer of the Match:</strong> +3 pts</li>
-                <li><strong>Bonus MCQ Polls:</strong> +2 pts per correct answer</li>
+                <li><strong>Correct Player of the Match:</strong> +3 pts</li>
+                <li><strong>Tournament Futures (Global Props):</strong> +2 pts per correct prediction <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(Awarded when Admin settles them)</span></li>
               </ul>
               <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--border-default)' }}>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cup-red)', marginBottom: '4px' }}>💰 Bounty Matches</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px 0' }}>Bounty matches double your earned points (e.g., exactly predicting a scoreline gives 10 pts). However, if you score 0 points on a Bounty Match, you get penalized <strong>-1 point</strong>.</p>
+                
                 <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cup-gold)', marginBottom: '4px' }}>🎯 Accuracy Rate Bonus</p>
                 <ul style={{ fontSize: '12px', color: 'var(--text-muted)', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <li><strong>Tier 1</strong> (80%–100% accuracy): +5 bonus pts</li>
@@ -473,7 +482,8 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
     const hasBallot = !!myBallot
 
     // Determine card visual state
-    const cardState = isCompleted ? 'completed' : hasBallot ? 'submitted' : 'pending'
+    let cardState = (isCompleted || isLocked) ? 'completed' : hasBallot ? 'submitted' : 'pending'
+    if (match.is_bounty && !isCompleted && !isLocked) cardState += ' bounty'
 
     return (
       <button key={match.id} className={`match-card ${cardState} ${isExpanded ? 'active' : ''}`} onClick={() => toggleMatch(match.id)}>
@@ -498,6 +508,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
               {kickoff.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })} · {kickoff.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST
             </span>
             {match.stage && <span className="badge badge-gray" style={{ fontSize: '9px' }}>{match.stage}</span>}
+            {match.is_bounty && <span className="badge badge-gold" style={{ fontSize: '9px', fontWeight: 800, padding: '2px 6px' }}>💰 BOUNTY (2x)</span>}
             {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}
             {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
             {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓</span>}
@@ -571,6 +582,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           allPollAnswers={allPollAnswers}
           onBallotSaved={onBallotSaved}
           onPollAnswerSaved={onPollAnswerSaved}
+          onProfileUpdated={onProfileUpdated}
         />
       </div>
     )
@@ -699,8 +711,12 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           opacity: 0.5;
         }
         .match-card-accent.completed {
-          background: var(--text-muted);
+          background: var(--border-subtle);
           opacity: 0.3;
+        }
+        .match-card-accent.bounty {
+          background: var(--cup-red);
+          box-shadow: 0 0 10px var(--cup-red);
         }
         .selected-match-details {
           margin-top: 8px;
