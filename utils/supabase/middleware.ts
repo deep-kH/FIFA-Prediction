@@ -33,7 +33,13 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
+
+  console.log('MIDDLEWARE DEBUG:')
+  console.log('URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log('User found:', !!user, 'User error:', userError)
+  console.log('Cookies present:', request.cookies.getAll().map(c => c.name))
 
   if (
     !user &&

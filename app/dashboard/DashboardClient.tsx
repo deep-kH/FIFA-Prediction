@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { Profile, Match, Ballot, PollAnswer } from '@/types/database'
 import Leaderboard, { StreakFlame } from '@/components/Leaderboard'
@@ -25,7 +26,7 @@ export default function DashboardClient({
   profile, matches, leaderboard: initialLeaderboard,
   userBallots, userPollAnswers
 }: Props) {
-  const [activeTab, setActiveTab] = useState<'matches' | 'leaderboard' | 'admin'>('matches')
+  const [activeTab, setActiveTab] = useState<'matches' | 'futures' | 'leaderboard' | 'admin'>('matches')
   const [leaderboard, setLeaderboard] = useState(initialLeaderboard)
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null)
   const [ballots, setBallots] = useState<Ballot[]>(userBallots)
@@ -198,6 +199,28 @@ export default function DashboardClient({
 
       {/* ─── MAIN CONTENT ─── */}
       <main className="dashboard-main">
+        {/* Live Arena Dashboard Pin */}
+        {matches.map(m => {
+          const isLive = new Date() >= new Date(m.kickoff_time) && !m.is_completed
+          if (!isLive) return null
+          return (
+            <Link key={`live-pin-${m.id}`} href={`/match/${m.id}/live`} style={{ textDecoration: 'none' }}>
+              <div style={{ marginBottom: '20px', padding: '16px', background: 'linear-gradient(90deg, rgba(255, 69, 96, 0.1), rgba(255, 69, 96, 0.02))', border: '1px solid rgba(255, 69, 96, 0.3)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', animation: 'pulse 2s infinite' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--cup-red)', boxShadow: '0 0 10px var(--cup-red)' }} />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--cup-red)', letterSpacing: '1px' }}>LIVE ARENA ACTIVE</div>
+                    <div style={{ fontSize: '16px', fontWeight: 700 }}>{m.home_team?.name} vs {m.away_team?.name}</div>
+                  </div>
+                </div>
+                <div className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                  Enter Room
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+
         {activeTab === 'matches' && (
           <MatchesTab
             matches={matches}
@@ -233,12 +256,8 @@ export default function DashboardClient({
                 <li><strong>Home Team Goals Match:</strong> +1 pt <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(consolation if you nail a team&apos;s goals)</span></li>
                 <li><strong>Away Team Goals Match:</strong> +1 pt</li>
                 <li><strong>Correct Player of the Match:</strong> +3 pts</li>
-                <li><strong>Tournament Futures (Global Props):</strong> +2 pts per correct prediction <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(Awarded when Admin settles them)</span></li>
               </ul>
               <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--border-default)' }}>
-                <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cup-red)', marginBottom: '4px' }}>💰 Bounty Matches</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px 0' }}>Bounty matches double your earned points (e.g., exactly predicting a scoreline gives 10 pts). However, if you score 0 points on a Bounty Match, you get penalized <strong>-1 point</strong>.</p>
-                
                 <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cup-gold)', marginBottom: '4px' }}>🎯 Accuracy Rate Bonus</p>
                 <ul style={{ fontSize: '12px', color: 'var(--text-muted)', paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <li><strong>Tier 1</strong> (80%–100% accuracy): +5 bonus pts</li>
@@ -483,10 +502,15 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
 
     // Determine card visual state
     let cardState = (isCompleted || isLocked) ? 'completed' : hasBallot ? 'submitted' : 'pending'
-    if (match.is_bounty && !isCompleted && !isLocked) cardState += ' bounty'
 
     return (
-      <button key={match.id} className={`match-card ${cardState} ${isExpanded ? 'active' : ''}`} onClick={() => toggleMatch(match.id)}>
+      <div 
+        key={match.id} 
+        className={`match-card ${cardState} ${isExpanded ? 'active' : ''}`} 
+        onClick={() => toggleMatch(match.id)}
+        role="button"
+        tabIndex={0}
+      >
         {/* Left accent bar */}
         <div className={`match-card-accent ${cardState}`} />
 
@@ -508,7 +532,6 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
               {kickoff.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })} · {kickoff.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST
             </span>
             {match.stage && <span className="badge badge-gray" style={{ fontSize: '9px' }}>{match.stage}</span>}
-            {match.is_bounty && <span className="badge badge-gold" style={{ fontSize: '9px', fontWeight: 800, padding: '2px 6px' }}>💰 BOUNTY (2x)</span>}
             {isCompleted && <span className="badge badge-gray" style={{ fontSize: '9px' }}>FT</span>}
             {isLocked && !isCompleted && <span className="badge badge-red" style={{ fontSize: '9px' }}>Locked</span>}
             {!isLocked && hasBallot && <span className="badge badge-green" style={{ fontSize: '9px' }}>✓</span>}
@@ -559,7 +582,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
             <Pencil size={14} color="var(--cup-green)" />
           )}
         </div>
-      </button>
+      </div>
     )
   }
 

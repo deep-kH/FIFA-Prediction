@@ -5,13 +5,14 @@ import { Shield, Plus, Users, CheckSquare, Settings } from 'lucide-react'
 import MatchProvisioner from './MatchProvisioner'
 import SquadManager from './SquadManager'
 import SettlementConsole from './SettlementConsole'
+import GlobalPropManager from './GlobalPropManager'
 
 interface Props {
   matches: any[]
   onDataChanged: () => void
 }
 
-type AdminTab = 'schedule' | 'squad' | 'settle'
+type AdminTab = 'schedule' | 'squad' | 'settle' | 'polls'
 
 export default function AdminPanel({ matches, onDataChanged }: Props) {
   const [activeTab, setActiveTab] = useState<AdminTab>('schedule')
@@ -20,6 +21,7 @@ export default function AdminPanel({ matches, onDataChanged }: Props) {
     { id: 'schedule' as AdminTab, label: 'Match Schedule', icon: <Plus size={15} /> },
     { id: 'squad' as AdminTab, label: 'Squad Manager', icon: <Users size={15} /> },
     { id: 'settle' as AdminTab, label: 'Settle Results', icon: <CheckSquare size={15} /> },
+    { id: 'polls' as AdminTab, label: 'Polls & Futures', icon: <Settings size={15} /> },
   ]
 
   return (
@@ -57,6 +59,7 @@ export default function AdminPanel({ matches, onDataChanged }: Props) {
         {activeTab === 'schedule' && <MatchProvisioner onSaved={onDataChanged} />}
         {activeTab === 'squad' && <SquadManager />}
         {activeTab === 'settle' && <SettlementConsole matches={matches} onSettled={onDataChanged} />}
+        {activeTab === 'polls' && <GlobalPropManager matches={matches} onSaved={onDataChanged} />}
       </div>
 
       <style jsx>{`

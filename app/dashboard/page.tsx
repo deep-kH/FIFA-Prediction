@@ -8,12 +8,16 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  console.log('DASHBOARD PAGE: Fetching user:', user?.id)
+
   // Fetch current user's profile
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+
+  console.log('DASHBOARD PAGE: Profile found:', !!profile, 'Error:', profileError)
 
   if (!profile) redirect('/login')
 
