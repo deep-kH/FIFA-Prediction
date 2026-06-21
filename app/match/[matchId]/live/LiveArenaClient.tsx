@@ -16,7 +16,7 @@ interface LiveEvent {
   id: number
   match_id: number
   user_id: string
-  event_type: 'CHAT' | 'REACTION' | 'FLASH_POLL'
+  event_type: 'CHAT' | 'REACTION' | 'POLL_DROP'
   content: string | null
   embedded_poll_id: number | null
   created_at: string
@@ -278,7 +278,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
       await supabase.from('live_room_events').insert({
         match_id: match.id,
         user_id: profile.id,
-        event_type: 'FLASH_POLL',
+        event_type: 'POLL_DROP',
         embedded_poll_id: poll.id,
         content: `Dropped a ${newPollDuration}s Flash Poll!`
       })
@@ -394,7 +394,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
           {events.map((e, idx) => {
             const isMe = e.user_id === profile.id
 
-            if (e.event_type === 'FLASH_POLL') {
+            if (e.event_type === 'POLL_DROP') {
               const poll = allPolls.find(p => p.id === e.embedded_poll_id)
               if (!poll) return null
               const isClosed = new Date() >= new Date(poll.closes_at)

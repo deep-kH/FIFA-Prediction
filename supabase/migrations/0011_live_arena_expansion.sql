@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.live_room_events (
     id SERIAL PRIMARY KEY,
     match_id INTEGER REFERENCES public.matches(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    event_type TEXT NOT NULL CHECK (event_type IN ('CHAT', 'REACTION', 'FLASH_POLL', 'SYSTEM')),
+    event_type TEXT NOT NULL CHECK (event_type IN ('CHAT', 'REACTION', 'POLL_DROP', 'SYSTEM')),
     content TEXT,
     embedded_poll_id INTEGER,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL
