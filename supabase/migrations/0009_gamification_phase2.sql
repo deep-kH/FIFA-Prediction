@@ -224,20 +224,20 @@ BEGIN
 
   UPDATE public.profiles p
   SET current_streak = current_streak + 1
-  WHERE EXISTS (
-    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id AND b.match_id = p_match_id AND b.accuracy_rate >= 25
+  WHERE id IN (
+    SELECT user_id FROM public.ballots WHERE match_id = p_match_id AND accuracy_rate >= 25
   );
 
   UPDATE public.profiles p
   SET current_streak = 0
-  WHERE EXISTS (
-    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id AND b.match_id = p_match_id AND b.accuracy_rate < 25 AND b.played_card != 'SAFETY_NET'
+  WHERE id IN (
+    SELECT user_id FROM public.ballots WHERE match_id = p_match_id AND accuracy_rate < 25 AND played_card != 'SAFETY_NET'
   );
 
   UPDATE public.profiles p
   SET inventory_multiplier = inventory_multiplier + 1
-  WHERE current_streak > 0 AND current_streak % 5 = 0 AND EXISTS (
-    SELECT 1 FROM public.ballots b WHERE b.user_id = p.id AND b.match_id = p_match_id AND b.accuracy_rate >= 25
+  WHERE current_streak > 0 AND current_streak % 5 = 0 AND id IN (
+    SELECT user_id FROM public.ballots WHERE match_id = p_match_id AND accuracy_rate >= 25
   );
 
   -- 8. Final Recalculation includes Universal Poll points as well!
@@ -247,12 +247,8 @@ BEGIN
   ) + (
     SELECT coalesce(sum(up.points_earned), 0) FROM public.universal_poll_answers up WHERE up.user_id = p.id
   )
-  WHERE p.id IS NOT NULL AND (
-    EXISTS (
-      SELECT 1 FROM public.ballots b WHERE b.user_id = p.id
-    ) OR EXISTS (
-      SELECT 1 FROM public.universal_poll_answers up WHERE up.user_id = p.id
-    )
+  WHERE id IN (
+    SELECT user_id FROM public.ballots UNION SELECT user_id FROM public.universal_poll_answers
   );
 
 END;
