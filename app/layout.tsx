@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 }
 
 import { ThemeProvider } from '@/components/ThemeProvider'
+import GlobalLiveWidgetWrapper from '@/components/GlobalLiveArena/GlobalLiveWidgetWrapper'
 
 export default function RootLayout({
   children,
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}
+          <GlobalLiveWidgetWrapper />
         </ThemeProvider>
       </body>
     </html>

@@ -8,8 +8,11 @@ import Link from 'next/link'
 import LiveGraphicsEngine from '@/components/LiveGraphicsEngine'
 
 interface Props {
-  match: any
+  match?: any
   profile: Profile
+  isWidget?: boolean
+  onClose?: () => void
+  onExpand?: () => void
 }
 
 interface LiveEvent {
@@ -29,7 +32,7 @@ interface FloatingEmoji {
   x: number
 }
 
-export default function LiveArenaClient({ match, profile }: Props) {
+export default function LiveArenaClient({ match, profile, isWidget, onClose, onExpand }: Props) {
   const supabase = createClient()
   const [events, setEvents] = useState<LiveEvent[]>([])
   const [chatInput, setChatInput] = useState('')
@@ -94,7 +97,6 @@ export default function LiveArenaClient({ match, profile }: Props) {
       try {
         const { data: evtsDesc } = await supabase.from('live_room_events')
           .select('*')
-          .eq('match_id', match.id)
           .order('created_at', { ascending: false })
           .limit(100)
           
@@ -111,7 +113,6 @@ export default function LiveArenaClient({ match, profile }: Props) {
 
         const { data: pastPolls } = await supabase.from('live_user_polls')
           .select('*, profiles:creator_id(*)')
-          .eq('match_id', match.id)
           .order('created_at', { ascending: true })
 
         const pollIds = pastPolls && pastPolls.length > 0 ? pastPolls.map(p => p.id) : [0]
@@ -125,7 +126,6 @@ export default function LiveArenaClient({ match, profile }: Props) {
         // See if there are any active polls (could be multiple)
         const { data: activeOpenPolls } = await supabase.from('live_user_polls')
           .select('*')
-          .eq('match_id', match.id)
           .gt('closes_at', new Date().toISOString())
           .order('created_at', { ascending: false })
         
@@ -159,7 +159,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
 
     fetchInitial()
 
-    const channel = supabase.channel(`live_room_${match.id}`, {
+    const channel = supabase.channel(`global_live_room`, {
       config: { broadcast: { self: false } }
     })
       .on('broadcast', { event: 'reaction' }, (payload) => {
@@ -168,7 +168,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
           setLastReaction(emoji + ':' + Math.random())
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_room_events', filter: `match_id=eq.${match.id}` }, async (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_room_events' }, async (payload) => {
         const newEvent = payload.new as LiveEvent
         
         // Fetch profile info for the new event
@@ -181,7 +181,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
         
         setEvents(prev => [...prev, newEvent])
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_user_polls', filter: `match_id=eq.${match.id}` }, async (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_user_polls' }, async (payload) => {
         const newPoll = payload.new as any
         const { data: creator } = await supabase.from('profiles').select('*').eq('id', newPoll.creator_id).single()
         newPoll.profiles = creator
@@ -208,7 +208,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
     })
 
     // Setup Presence
-    const presenceChannel = supabase.channel(`presence_${match.id}`)
+    const presenceChannel = supabase.channel(`global_presence`)
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState()
@@ -225,7 +225,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
       supabase.removeChannel(presenceChannel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match.id])
+  }, [])
 
   // Scroll to bottom when events change
   useEffect(() => {
@@ -252,7 +252,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
     setChatInput('')
 
     await supabase.from('live_room_events').insert({
-      match_id: match.id,
+      match_id: null,
       user_id: profile.id,
       event_type: 'CHAT',
       content
@@ -266,7 +266,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
     const closesAt = new Date(Date.now() + newPollDuration * 1000).toISOString()
     
     const { data: poll } = await supabase.from('live_user_polls').insert({
-      match_id: match.id,
+      match_id: null,
       creator_id: profile.id,
       question: newPollQ,
       options: optionsArray,
@@ -276,7 +276,7 @@ export default function LiveArenaClient({ match, profile }: Props) {
 
     if (poll) {
       await supabase.from('live_room_events').insert({
-        match_id: match.id,
+        match_id: null,
         user_id: profile.id,
         event_type: 'POLL_DROP',
         embedded_poll_id: poll.id,
@@ -301,73 +301,68 @@ export default function LiveArenaClient({ match, profile }: Props) {
   }
 
   const shareMatchRoom = async () => {
-    const url = `${window.location.origin}/match/${match.id}/live`
+    const url = `${window.location.origin}/dashboard`
+    const isLive = match && new Date() >= new Date(match.kickoff_time) && !match.is_completed
+    const textMsg = isLive 
+      ? `hey, wanna join the trash talk. ${match.home_team?.name} vs ${match.away_team?.name} is live now.. ${url}?live=${match.id}`
+      : `Join the Global Live Arena ${url}`
+      
     try {
       if (navigator.share) {
-        await navigator.share({ title: `Live Arena: ${match.home_team?.name} vs ${match.away_team?.name}`, url })
+        await navigator.share({ title: `TACT-IX Arena`, text: textMsg })
       } else {
-        await navigator.clipboard.writeText(url)
+        await navigator.clipboard.writeText(textMsg)
         setLinkCopied(true)
         setTimeout(() => setLinkCopied(false), 2000)
       }
     } catch {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(textMsg)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     }
   }
 
-  const kickoffTime = new Date(match.kickoff_time)
-  const isPreKickoff = new Date() < kickoffTime
-
-  if (isPreKickoff) {
-    return (
-      <div className="arena-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <header className="arena-header" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-          <Link href="/dashboard" className="btn btn-ghost btn-icon"><ArrowLeft size={20} /></Link>
-        </header>
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🚪</div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '10px' }}>DOORS LOCKED</h2>
-          <p style={{ color: 'var(--text-muted)' }}>The Live Arena opens when the match kicks off.</p>
-          <div className="badge badge-gray" style={{ marginTop: '20px', fontSize: '14px' }}>
-            {kickoffTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-          </div>
-        </div>
-        <style jsx>{`
-          .arena-container {
-            display: flex; flex-direction: column; height: 100vh; max-height: 100dvh; background: #0A0C10; color: #fff; position: relative; overflow: hidden;
-          }
-          .arena-header {
-            display: flex; align-items: center; padding: 12px 16px; background: rgba(20,20,20,0.8); border-bottom: 1px solid var(--border-subtle); z-index: 10;
-          }
-        `}</style>
-      </div>
-    )
-  }
-
   return (
     <div className="arena-container">
-      <LiveGraphicsEngine matchId={match.id} trigger={lastReaction} />
+      {match && <LiveGraphicsEngine matchId={match.id} trigger={lastReaction} />}
       {/* Header */}
-      <header className="arena-header">
-        <Link href="/dashboard" className="btn btn-ghost btn-icon">
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="arena-match-info">
-          <span className="arena-pulse-dot" />
-          <span className="arena-title">LIVE ARENA</span>
-          <span className="arena-teams">{match.home_team?.flag_emoji} {match.home_score} - {match.away_score} {match.away_team?.flag_emoji}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '12px', fontSize: '11px' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00ff00' }} />
-            {onlineCount} {onlineCount === 1 ? 'Player' : 'Players'} Online
+      <header className="arena-header" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {!isWidget && (
+            <Link href="/dashboard" className="btn btn-ghost btn-icon" style={{ marginRight: '8px' }}>
+              <ArrowLeft size={20} />
+            </Link>
+          )}
+          <div className="arena-match-info" style={{ margin: 0 }}>
+            <span className="arena-pulse-dot" />
+            {!isWidget && <span className="arena-title">LIVE ARENA</span>}
+            <span className="arena-teams" style={{ fontSize: isWidget ? '14px' : '16px' }}>
+              {match ? `${match.home_team?.flag_emoji} ${match.home_score} - ${match.away_score} ${match.away_team?.flag_emoji}` : 'GLOBAL ARENA'}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '12px', fontSize: '10px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00ff00' }} />
+              {onlineCount} {onlineCount === 1 ? 'Player' : 'Players'}
+            </div>
           </div>
         </div>
-        {profile.is_admin && (
-          <button onClick={shareMatchRoom} className="btn btn-ghost btn-icon" title="Share match room" style={{ marginLeft: '8px', position: 'relative' }}>
-            {linkCopied ? <Check size={18} color="#00ff00" /> : <Share2 size={18} />}
-          </button>
-        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {profile.is_admin && (
+            <button onClick={shareMatchRoom} className="btn btn-ghost btn-icon" title="Share match room" style={{ position: 'relative' }}>
+              {linkCopied ? <Check size={16} color="#00ff00" /> : <Share2 size={16} />}
+            </button>
+          )}
+          {isWidget && onExpand && (
+            <button onClick={onExpand} className="btn btn-ghost btn-icon" title="Expand">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          )}
+          {isWidget && onClose && (
+            <button onClick={onClose} className="btn btn-ghost btn-icon" title="Close">
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </header>
 
       {Object.keys(activePolls).length > 0 && (
@@ -394,9 +389,19 @@ export default function LiveArenaClient({ match, profile }: Props) {
           {events.map((e, idx) => {
             const isMe = e.user_id === profile.id
 
-            if (e.event_type === 'POLL_DROP') {
+            const isPollDrop = e.event_type === 'POLL_DROP' || (e.event_type === 'CHAT' && e.embedded_poll_id)
+            if (isPollDrop) {
               const poll = allPolls.find(p => p.id === e.embedded_poll_id)
-              if (!poll) return null
+              if (!poll) {
+                // If poll data not found for some reason, just render as regular chat
+                return (
+                  <div key={e.id || idx} className={`chat-bubble-row ${isMe ? 'me' : 'them'}`}>
+                    <div className={`chat-bubble ${isMe ? 'me' : 'them'}`} style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                      {e.content || 'A poll was dropped'}
+                    </div>
+                  </div>
+                )
+              }
               const isClosed = new Date() >= new Date(poll.closes_at)
               const isActive = !!activePolls[poll.id]
               const thisPollAnswered = !!answeredPolls[poll.id]
