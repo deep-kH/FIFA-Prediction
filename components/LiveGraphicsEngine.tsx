@@ -40,7 +40,7 @@ export default function LiveGraphicsEngine({ matchId, trigger }: Props) {
     const newEmojis = Array.from({ length: count }).map(() => ({
       id: Math.random().toString(36).substr(2, 9),
       emoji,
-      // Random X pos across the entire screen width (10vw to 90vw)
+      // Random X pos across the entire container width (10% to 90%)
       startX: 10 + Math.random() * 80,
       // 2 to 3 seconds duration
       duration: 2.0 + Math.random() * 1.0
@@ -56,7 +56,7 @@ export default function LiveGraphicsEngine({ matchId, trigger }: Props) {
   }
 
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10, overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 9999, overflow: 'hidden' }}>
       <AnimatePresence>
         {floatingEmojis.map((e: any) => {
           // Gentle wiggle and drifting
@@ -66,10 +66,10 @@ export default function LiveGraphicsEngine({ matchId, trigger }: Props) {
           return (
             <motion.div
               key={e.id}
-              initial={{ y: '100vh', x: `${e.startX}vw`, opacity: 0, scale: 0.5 }}
+              initial={{ top: '100%', left: `${e.startX}%`, opacity: 0, scale: 0.5 }}
               animate={{ 
-                y: '-20vh', 
-                x: [`${e.startX}vw`, `${wiggle1}vw`, `${wiggle2}vw`, `${e.startX}vw`], 
+                top: '-20%', 
+                left: [`${e.startX}%`, `${wiggle1}%`, `${wiggle2}%`, `${e.startX}%`], 
                 opacity: [0, 0.8, 0.8, 0],
                 scale: [0.5, 1.2, 1.5, 1.0]
               }}

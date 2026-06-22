@@ -71,7 +71,7 @@ export default function GlobalLiveWidgetClient({ profile, initialMatches }: Prop
         
         if (!isOpen) {
           setUnreadCount(prev => prev + 1)
-          if (event.event_type === 'POLL_DROP') {
+          if (event.event_type === 'FLASH_POLL' && !isOpen) {
             setPulsing(true)
             setTimeout(() => setPulsing(false), 10000) // pulse for 10s
           }
@@ -135,7 +135,7 @@ export default function GlobalLiveWidgetClient({ profile, initialMatches }: Prop
             position: 'fixed',
             bottom: isFullScreen ? '0' : '24px',
             right: isFullScreen ? '0' : '24px',
-            width: isFullScreen ? '100%' : '380px',
+            width: isFullScreen ? '100%' : '420px',
             height: isFullScreen ? '100%' : '600px',
             maxWidth: '100%',
             maxHeight: isFullScreen ? '100%' : 'calc(100vh - 48px)',

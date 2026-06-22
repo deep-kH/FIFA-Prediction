@@ -199,27 +199,7 @@ export default function DashboardClient({
 
       {/* ─── MAIN CONTENT ─── */}
       <main className="dashboard-main">
-        {/* Live Arena Dashboard Pin */}
-        {matches.map(m => {
-          const isLive = new Date() >= new Date(m.kickoff_time) && !m.is_completed
-          if (!isLive) return null
-          return (
-            <Link key={`live-pin-${m.id}`} href={`/match/${m.id}/live`} style={{ textDecoration: 'none' }}>
-              <div style={{ marginBottom: '20px', padding: '16px', background: 'linear-gradient(90deg, rgba(255, 69, 96, 0.1), rgba(255, 69, 96, 0.02))', border: '1px solid rgba(255, 69, 96, 0.3)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', animation: 'pulse 2s infinite' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--cup-red)', boxShadow: '0 0 10px var(--cup-red)' }} />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--cup-red)', letterSpacing: '1px' }}>LIVE ARENA ACTIVE</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700 }}>{m.home_team?.name} vs {m.away_team?.name}</div>
-                  </div>
-                </div>
-                <div className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}>
-                  Enter Room
-                </div>
-              </div>
-            </Link>
-          )
-        })}
+
 
         {activeTab === 'matches' && (
           <MatchesTab

@@ -19,7 +19,7 @@ interface LiveEvent {
   id: number
   match_id: number
   user_id: string
-  event_type: 'CHAT' | 'REACTION' | 'POLL_DROP'
+  event_type: 'CHAT' | 'REACTION' | 'POLL_DROP' | 'FLASH_POLL' | 'SYSTEM'
   content: string | null
   embedded_poll_id: number | null
   created_at: string
@@ -111,16 +111,30 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
         }
         setEvents(evts)
 
-        const { data: pastPolls } = await supabase.from('live_user_polls')
-          .select('*, profiles:creator_id(*)')
+        const { data: pastPollsData, error: pastPollsError } = await supabase.from('live_user_polls')
+          .select('*')
           .order('created_at', { ascending: true })
 
-        const pollIds = pastPolls && pastPolls.length > 0 ? pastPolls.map(p => p.id) : [0]
+        if (pastPollsError) {
+          console.error("Error fetching past polls:", pastPollsError)
+        }
+        
+        let pastPolls = pastPollsData || []
+        
+        if (pastPolls.length > 0) {
+          const creatorIds = Array.from(new Set(pastPolls.map(p => p.creator_id)))
+          const { data: pollProfilesData } = await supabase.from('profiles').select('*').in('id', creatorIds)
+          if (pollProfilesData) {
+            pastPolls = pastPolls.map(p => ({ ...p, profiles: pollProfilesData.find(prof => prof.id === p.creator_id) }))
+          }
+        }
+
+        const pollIds = pastPolls.length > 0 ? pastPolls.map(p => p.id) : [0]
         const { data: pastVotes } = await supabase.from('live_user_poll_votes')
           .select('*, profiles(*)')
           .in('poll_id', pollIds)
 
-        setAllPolls(pastPolls || [])
+        setAllPolls(pastPolls)
         setAllPollVotes(pastVotes || [])
 
         // See if there are any active polls (could be multiple)
@@ -265,7 +279,7 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
     const optionsArray = newPollOptions.filter(o => o.trim())
     const closesAt = new Date(Date.now() + newPollDuration * 1000).toISOString()
     
-    const { data: poll } = await supabase.from('live_user_polls').insert({
+    const { data: poll, error: pollError } = await supabase.from('live_user_polls').insert({
       match_id: null,
       creator_id: profile.id,
       question: newPollQ,
@@ -274,14 +288,17 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
       closes_at: closesAt
     }).select().single()
 
+    if (pollError) console.error("Error creating poll:", pollError)
+
     if (poll) {
-      await supabase.from('live_room_events').insert({
+      const { error: evtError } = await supabase.from('live_room_events').insert({
         match_id: null,
         user_id: profile.id,
-        event_type: 'POLL_DROP',
+        event_type: 'FLASH_POLL',
         embedded_poll_id: poll.id,
         content: `Dropped a ${newPollDuration}s Flash Poll!`
       })
+      if (evtError) console.error("Error creating event:", evtError)
     }
     setShowCreatePoll(false)
     setCreatingPoll(false)
@@ -324,7 +341,7 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
 
   return (
     <div className="arena-container">
-      {match && <LiveGraphicsEngine matchId={match.id} trigger={lastReaction} />}
+      <LiveGraphicsEngine matchId={match?.id || 0} trigger={lastReaction} />
       {/* Header */}
       <header className="arena-header" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -389,9 +406,9 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
           {events.map((e, idx) => {
             const isMe = e.user_id === profile.id
 
-            const isPollDrop = e.event_type === 'POLL_DROP' || (e.event_type === 'CHAT' && e.embedded_poll_id)
+            const isPollDrop = e.event_type === 'FLASH_POLL' || e.event_type === 'POLL_DROP' || (e.event_type === 'CHAT' && e.embedded_poll_id)
             if (isPollDrop) {
-              const poll = allPolls.find(p => p.id === e.embedded_poll_id)
+              const poll = allPolls.find(p => p.id === Number(e.embedded_poll_id))
               if (!poll) {
                 // If poll data not found for some reason, just render as regular chat
                 return (
@@ -567,14 +584,7 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
 
       <style jsx>{`
         .arena-container {
-          display: flex;
-          flex-direction: column;
-          height: 100vh;
-          max-height: 100dvh;
-          background: #0A0C10;
-          color: #fff;
-          position: relative;
-          overflow: hidden;
+          display: flex; flex-direction: column; height: 100%; max-height: 100%; background: #0A0C10; color: #fff; position: relative; overflow: hidden;
         }
         .arena-header {
           display: flex;
