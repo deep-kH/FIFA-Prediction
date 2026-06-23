@@ -810,8 +810,8 @@ function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       {ballot.played_card === 'MULTIPLIER' && (
-                        <span className="badge" style={{ background: 'var(--cup-red)', color: 'white', fontSize: '10px', padding: '2px 6px' }}>
-                          🔥 {ballot.accuracy_rate >= 80 ? 'x2.0 Halal Bonus' : 'x0.75 Halal Penalty'}
+                        <span className="badge" style={{ background: ballot.accuracy_rate >= 60 ? 'rgba(138,43,226,0.2)' : ballot.accuracy_rate <= 40 ? 'var(--cup-red)' : 'var(--surface-overlay)', color: ballot.accuracy_rate >= 60 ? '#8A2BE2' : ballot.accuracy_rate <= 40 ? 'white' : 'var(--text-muted)', border: ballot.accuracy_rate >= 60 ? '1px solid rgba(138,43,226,0.5)' : 'none', fontSize: '10px', padding: '2px 6px' }}>
+                          🔥 {ballot.accuracy_rate >= 60 ? 'x2.0 Halal Bonus' : ballot.accuracy_rate <= 40 ? 'x0.75 Halal Penalty' : 'Neutral Halal'}
                         </span>
                       )}
                       {ballot.played_card === 'SAFETY_NET' && (

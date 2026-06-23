@@ -546,12 +546,12 @@ export default function BallotCard({
 
                         {b && isCompleted && (
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px' }}>
-                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate > 60 && (
+                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate >= 60 && (
                               <span className="badge badge-gold" style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(138,43,226,0.2)', color: '#8A2BE2', border: '1px solid rgba(138,43,226,0.5)' }}>
                                 Halal 2x
                               </span>
                             )}
-                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate < 40 && (
+                            {b.played_card === 'MULTIPLIER' && b.accuracy_rate <= 40 && (
                               <span className="badge badge-red" style={{ fontSize: '10px', padding: '2px 6px' }}>
                                 Halal Penalty 0.75x
                               </span>
