@@ -42,13 +42,7 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
   const formattedDate = kickoff.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })
   const formattedTime = kickoff.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 
-    // Fetch the local favicon using the absolute production URL to bypass Vercel edge filesystem limitations
-    // We do this explicitly to catch any fetch errors in our try/catch, instead of letting Satori crash the stream.
     const baseUrl = 'https://tact-11-jade.vercel.app'
-    const logoData = await fetch(`${baseUrl}/favicon.ico`).then((res) => {
-      if (!res.ok) throw new Error(`Failed to fetch logo: ${res.statusText}`)
-      return res.arrayBuffer()
-    })
 
     return new ImageResponse(
     (
@@ -68,7 +62,6 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
       >
         {/* TACT-IX Branding Top */}
         <div style={{ position: 'absolute', top: 40, display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <img src={logoData as any} width={64} height={64} style={{ borderRadius: '1px' }} />
           <div style={{
             background: '#F5C842',
             color: '#0A0C10',

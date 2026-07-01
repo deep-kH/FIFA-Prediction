@@ -39,10 +39,6 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
   }
 
     const baseUrl = 'https://tact-11-jade.vercel.app'
-    const logoData = await fetch(`${baseUrl}/favicon.ico`).then((res) => {
-      if (!res.ok) throw new Error(`Failed to fetch logo: ${res.statusText}`)
-      return res.arrayBuffer()
-    })
 
     return new ImageResponse(
     (
@@ -62,7 +58,6 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
       >
         {/* TACT-IX Branding Top */}
         <div style={{ position: 'absolute', top: 40, display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <img src={logoData as any} width={64} height={64} style={{ borderRadius: '1px' }} />
           <div style={{
             background: '#FF4560',
             color: '#fff',

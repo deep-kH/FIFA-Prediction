@@ -8,12 +8,7 @@ export const contentType = 'image/png'
 
 export default async function Image() {
   try {
-    // Fetch the local favicon using the absolute production URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tact-11-jade.vercel.app'
-    const logoData = await fetch(`${baseUrl}/favicon.ico`).then((res) => {
-      if (!res.ok) throw new Error(`Failed to fetch logo: ${res.statusText}`)
-      return res.arrayBuffer()
-    })
 
     return new ImageResponse(
       (
@@ -33,8 +28,6 @@ export default async function Image() {
         >
           {/* Main Content */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={logoData as any} width={180} height={180} style={{ borderRadius: '4px', marginBottom: '40px' }} />
-            
             <div style={{
               display: 'flex',
               alignItems: 'center',
