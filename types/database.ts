@@ -10,6 +10,7 @@ export interface Profile {
   current_streak?: number
   inventory_multiplier: number
   inventory_safety: number
+  baseline_points?: number
   created_at: string
 }
 

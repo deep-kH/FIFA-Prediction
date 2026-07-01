@@ -1,4 +1,4 @@
-﻿-- =============================================
+-- =============================================
 -- Migration: Phase 2 Gamification (Bounty, Global Polls, Live Arena)
 -- =============================================
 
@@ -323,7 +323,7 @@ BEGIN
     SELECT coalesce(sum(b.points_earned), 0) FROM public.ballots b WHERE b.user_id = p.id
   ) + (
     SELECT coalesce(sum(gpa.points_earned), 0) FROM public.global_prop_answers gpa WHERE gpa.user_id = p.id
-  )
+  ) - coalesce(p.baseline_points, 0)
   WHERE p.id IN (SELECT id FROM public.profiles);
 END;
 $$;
