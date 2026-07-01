@@ -354,7 +354,7 @@ export default function LiveArenaClient({ match, profile, isWidget, onClose, onE
             <span className="arena-pulse-dot" />
             {!isWidget && <span className="arena-title">LIVE ARENA</span>}
             <span className="arena-teams" style={{ fontSize: isWidget ? '14px' : '16px' }}>
-              {match ? `${match.home_team?.flag_emoji} ${match.home_score} - ${match.away_score} ${match.away_team?.flag_emoji}` : 'GLOBAL ARENA'}
+              {match ? `${match.home_team?.flag_emoji} ${match.home_score} - ${match.away_score}${match.home_penalty_score !== null ? ` (${match.home_penalty_score}-${match.away_penalty_score}p)` : ''} ${match.away_team?.flag_emoji}` : 'GLOBAL ARENA'}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px', background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: '12px', fontSize: '10px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#00ff00' }} />

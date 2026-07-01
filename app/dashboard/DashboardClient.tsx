@@ -500,7 +500,7 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
               <span style={{ fontSize: '14px', fontWeight: 600 }}>{match.home_team?.flag_emoji} {match.home_team?.name}</span>
               <span className="font-score" style={{ fontSize: '18px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
-                {isCompleted ? `${match.home_score} – ${match.away_score}` : 'vs'}
+                {isCompleted ? `${match.home_score} – ${match.away_score}${match.home_penalty_score !== null ? ` (${match.home_penalty_score}-${match.away_penalty_score}p)` : ''}` : 'vs'}
               </span>
               <span style={{ fontSize: '14px', fontWeight: 600, textAlign: 'right' }}>{match.away_team?.name} {match.away_team?.flag_emoji}</span>
             </div>
@@ -545,11 +545,11 @@ function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, all
           {hasBallot && (
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '2px' }}>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Your prediction: <span className="font-score" style={{ fontSize: '16px', color: 'var(--cup-gold)', letterSpacing: '1px' }}>{myBallot.predicted_home_score} – {myBallot.predicted_away_score}</span>
+                Your prediction: <span className="font-score" style={{ fontSize: '16px', color: 'var(--cup-gold)', letterSpacing: '1px' }}>{myBallot.predicted_home_score} – {myBallot.predicted_away_score}{myBallot.predicted_home_penalty_score !== null ? ` (${myBallot.predicted_home_penalty_score}-${myBallot.predicted_away_penalty_score}p)` : ''}</span>
               </span>
               {isCompleted && (
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  · Result: <span className="font-score" style={{ fontSize: '16px', color: 'var(--text-primary)', letterSpacing: '1px' }}>{match.home_score} – {match.away_score}</span>
+                  · Result: <span className="font-score" style={{ fontSize: '16px', color: 'var(--text-primary)', letterSpacing: '1px' }}>{match.home_score} – {match.away_score}{match.home_penalty_score !== null ? ` (${match.home_penalty_score}-${match.away_penalty_score}p)` : ''}</span>
                 </span>
               )}
             </div>
@@ -799,8 +799,14 @@ function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches
                         </span>
                         <span style={{ fontSize: '14px', fontWeight: 700 }}>
                           Predicted: {ballot.predicted_home_score} - {ballot.predicted_away_score}
+                          {ballot.predicted_home_penalty_score !== null && (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                              ({ballot.predicted_home_penalty_score} - {ballot.predicted_away_penalty_score}p)
+                            </span>
+                          )}
                           <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '8px', fontSize: '12px' }}>
-                            (Actual: {match?.home_score} - {match?.away_score})
+                            (Actual: {match?.home_score} - {match?.away_score}
+                            {match?.home_penalty_score !== null ? ` (${match.home_penalty_score}-${match.away_penalty_score}p)` : ''})
                           </span>
                         </span>
                       </div>
@@ -822,6 +828,11 @@ function ProfileModal({ user, currentUserId, allBallots, allPollAnswers, matches
                       {Number(ballot.score_points_earned || 0) > 0 && (
                         <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
                           {Number(ballot.score_points_earned) === 5 ? 'Exact +5.00' : 'Outcome +2.00'}
+                        </span>
+                      )}
+                      {ballot.predicted_home_penalty_score !== null && match?.home_penalty_score !== null && ballot.predicted_home_penalty_score === match.home_penalty_score && ballot.predicted_away_penalty_score === match.away_penalty_score && (
+                        <span className="badge badge-green" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                          Penalty Exact +2.00
                         </span>
                       )}
                       {(ballot.team_points_earned || 0) > 0 && (

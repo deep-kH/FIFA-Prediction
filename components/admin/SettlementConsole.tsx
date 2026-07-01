@@ -14,6 +14,8 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [homeScore, setHomeScore] = useState('')
   const [awayScore, setAwayScore] = useState('')
+  const [homePenaltyScore, setHomePenaltyScore] = useState('')
+  const [awayPenaltyScore, setAwayPenaltyScore] = useState('')
   const [topScorerId, setTopScorerId] = useState('')
   const [pollAnswers, setPollAnswers] = useState<Record<number, string>>({})
   const [players, setPlayers] = useState<any[]>([])
@@ -35,7 +37,7 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
       .order('name')
       .then(({ data }) => setPlayers(data || []))
     setTimeout(() => {
-      setHomeScore(''); setAwayScore(''); setTopScorerId(''); setPollAnswers({})
+      setHomeScore(''); setAwayScore(''); setHomePenaltyScore(''); setAwayPenaltyScore(''); setTopScorerId(''); setPollAnswers({})
     }, 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMatchId])
@@ -60,11 +62,15 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
         }
       }
 
+      const isKnockoutDraw = selectedMatch?.stage !== 'Group' && homeScore !== '' && awayScore !== '' && homeScore === awayScore;
+
       // Update match with results — trigger fires settlement function automatically
       const { error: matchError } = await supabase.from('matches')
         .update({
           home_score: parseInt(homeScore),
           away_score: parseInt(awayScore),
+          home_penalty_score: isKnockoutDraw && homePenaltyScore !== '' ? parseInt(homePenaltyScore) : null,
+          away_penalty_score: isKnockoutDraw && awayPenaltyScore !== '' ? parseInt(awayPenaltyScore) : null,
           top_scorer_id: topScorerId ? parseInt(topScorerId) : null,
           is_completed: true,
         })
@@ -134,6 +140,24 @@ export default function SettlementConsole({ matches, onSettled }: Props) {
                 </div>
               </div>
             </div>
+
+            {/* Penalty Scores */}
+            {selectedMatch.stage !== 'Group' && homeScore !== '' && awayScore !== '' && homeScore === awayScore && (
+              <div>
+                <label className="form-label">Penalty Shootout Score *</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '18px' }}>{selectedMatch.home_team?.flag_emoji}</span>
+                    <input id="settle-home-penalty" type="number" min={0} className="score-input" style={{ width: '50px', height: '40px' }} value={homePenaltyScore} onChange={e => setHomePenaltyScore(e.target.value)} placeholder="0" />
+                  </div>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-muted)' }}>–</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '18px' }}>{selectedMatch.away_team?.flag_emoji}</span>
+                    <input id="settle-away-penalty" type="number" min={0} className="score-input" style={{ width: '50px', height: '40px' }} value={awayPenaltyScore} onChange={e => setAwayPenaltyScore(e.target.value)} placeholder="0" />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Top Scorer */}
             <div>

@@ -24,6 +24,8 @@ export default function BallotCard({
   const supabase = createClient()
   const [homeScore, setHomeScore] = useState<string>(existingBallot?.predicted_home_score?.toString() ?? '')
   const [awayScore, setAwayScore] = useState<string>(existingBallot?.predicted_away_score?.toString() ?? '')
+  const [homePenaltyScore, setHomePenaltyScore] = useState<string>(existingBallot?.predicted_home_penalty_score?.toString() ?? '')
+  const [awayPenaltyScore, setAwayPenaltyScore] = useState<string>(existingBallot?.predicted_away_penalty_score?.toString() ?? '')
   const [topScorerId, setTopScorerId] = useState<string>(existingBallot?.predicted_top_scorer_id?.toString() ?? '')
   const [pollSelections, setPollSelections] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>(() => {
     const init: Record<number, 'A' | 'B' | 'C' | 'D'> = {}
@@ -96,11 +98,15 @@ export default function BallotCard({
 
     try {
       // Upsert ballot
+      const isKnockoutDraw = match.stage !== 'Group' && homeScore !== '' && awayScore !== '' && homeScore === awayScore;
+
       const ballotPayload = {
         user_id: profile.id,
         match_id: match.id,
         predicted_home_score: homeScore !== '' ? parseInt(homeScore) : 0,
         predicted_away_score: awayScore !== '' ? parseInt(awayScore) : 0,
+        predicted_home_penalty_score: isKnockoutDraw && homePenaltyScore !== '' ? parseInt(homePenaltyScore) : null,
+        predicted_away_penalty_score: isKnockoutDraw && awayPenaltyScore !== '' ? parseInt(awayPenaltyScore) : null,
         predicted_top_scorer_id: topScorerId ? parseInt(topScorerId) : null,
       }
 
@@ -190,9 +196,16 @@ export default function BallotCard({
           </div>
           <div className="ballot-vs-block">
             {isCompleted ? (
-              <span className="ballot-final-score">
-                {match.home_score} – {match.away_score}
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span className="ballot-final-score">
+                  {match.home_score} – {match.away_score}
+                </span>
+                {match.home_penalty_score !== null && match.away_penalty_score !== null && (
+                  <span style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    ({match.home_penalty_score} - {match.away_penalty_score} p)
+                  </span>
+                )}
+              </div>
             ) : (
               <span className="ballot-vs-text">VS</span>
             )}
@@ -227,7 +240,7 @@ export default function BallotCard({
         <div className="ballot-locked-banner">
           <Lock size={14} />
           {isCompleted
-            ? `Final Score: ${match.home_team?.name} ${match.home_score} – ${match.away_score} ${match.away_team?.name}`
+            ? `Final Score: ${match.home_team?.name} ${match.home_score} – ${match.away_score} ${match.away_team?.name} ${match.home_penalty_score !== null ? `(${match.home_penalty_score}-${match.away_penalty_score} p)` : ''}`
             : 'Match has kicked off — predictions are now locked.'}
         </div>
       )}
@@ -281,6 +294,39 @@ export default function BallotCard({
               />
             </div>
           </div>
+          
+          {match.stage !== 'Group' && homeScore !== '' && awayScore !== '' && homeScore === awayScore && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '12px', padding: '12px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+              <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Penalty Shootout</p>
+              <div className="score-prediction-row" style={{ gap: '16px' }}>
+                <input
+                  id={`home-penalty-score-${match.id}`}
+                  type="number"
+                  min={0}
+                  max={20}
+                  className="score-input"
+                  style={{ width: '44px', height: '44px', fontSize: '18px' }}
+                  value={homePenaltyScore}
+                  onChange={e => setHomePenaltyScore(e.target.value)}
+                  disabled={isLocked}
+                  placeholder="0"
+                />
+                <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--text-muted)' }}>–</div>
+                <input
+                  id={`away-penalty-score-${match.id}`}
+                  type="number"
+                  min={0}
+                  max={20}
+                  className="score-input"
+                  style={{ width: '44px', height: '44px', fontSize: '18px' }}
+                  value={awayPenaltyScore}
+                  onChange={e => setAwayPenaltyScore(e.target.value)}
+                  disabled={isLocked}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Top Scorer Prop */}
@@ -486,9 +532,16 @@ export default function BallotCard({
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {b ? (
-                          <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px', color: 'var(--text-primary)' }}>
-                            {b.predicted_home_score} - {b.predicted_away_score}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <span className="font-score" style={{ fontSize: '24px', letterSpacing: '1px', color: 'var(--text-primary)', lineHeight: 1 }}>
+                              {b.predicted_home_score} - {b.predicted_away_score}
+                            </span>
+                            {b.predicted_home_penalty_score !== null && (
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                ({b.predicted_home_penalty_score} - {b.predicted_away_penalty_score} p)
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No Score</span>
                         )}

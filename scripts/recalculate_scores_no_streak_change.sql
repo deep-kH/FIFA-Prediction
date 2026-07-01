@@ -7,6 +7,7 @@ DECLARE
   v_team_pts           numeric(8,2);
   v_scorer_pts         numeric(8,2);
   v_mcq_pts            numeric(8,2);
+  v_penalty_pts        numeric(8,2);
   v_total_ballot_pts   numeric(8,2);
   v_outcome_actual     text;
   v_outcome_pred       text;
@@ -15,18 +16,30 @@ DECLARE
   v_accuracy           numeric(5,2);
   v_accuracy_bonus     numeric(8,2);
   v_num_polls          integer;
+  v_is_penalty_actual  boolean;
 BEGIN
   -- Loop through all completed matches
   FOR v_match IN SELECT * FROM public.matches WHERE is_completed = true ORDER BY kickoff_time ASC LOOP
     
     SELECT count(*) INTO v_num_polls FROM public.custom_polls WHERE match_id = v_match.id;
 
+    v_is_penalty_actual := false;
+
     IF v_match.home_score > v_match.away_score THEN
       v_outcome_actual := 'HOME';
     ELSIF v_match.away_score > v_match.home_score THEN
       v_outcome_actual := 'AWAY';
     ELSE
-      v_outcome_actual := 'DRAW';
+      IF v_match.stage != 'Group' AND v_match.home_penalty_score IS NOT NULL AND v_match.away_penalty_score IS NOT NULL THEN
+        v_is_penalty_actual := true;
+        IF v_match.home_penalty_score > v_match.away_penalty_score THEN
+          v_outcome_actual := 'HOME';
+        ELSE
+          v_outcome_actual := 'AWAY';
+        END IF;
+      ELSE
+        v_outcome_actual := 'DRAW';
+      END IF;
     END IF;
 
     -- Loop through all ballots for this match
@@ -35,24 +48,59 @@ BEGIN
       v_team_pts   := 0;
       v_scorer_pts := 0;
       v_mcq_pts    := 0;
+      v_penalty_pts:= 0;
       v_slots_hit  := 0;
 
       IF v_ballot.predicted_home_score IS NOT NULL AND v_ballot.predicted_away_score IS NOT NULL THEN
-        IF v_ballot.predicted_home_score = v_match.home_score AND v_ballot.predicted_away_score = v_match.away_score THEN
-          v_score_pts := 5.0;
-          v_slots_hit := v_slots_hit + 1;
+        -- Determine Predicted Outcome
+        IF v_ballot.predicted_home_score > v_ballot.predicted_away_score THEN
+          v_outcome_pred := 'HOME';
+        ELSIF v_ballot.predicted_away_score > v_ballot.predicted_home_score THEN
+          v_outcome_pred := 'AWAY';
         ELSE
-          IF v_ballot.predicted_home_score > v_ballot.predicted_away_score THEN
-            v_outcome_pred := 'HOME';
-          ELSIF v_ballot.predicted_away_score > v_ballot.predicted_home_score THEN
-            v_outcome_pred := 'AWAY';
+          IF v_match.stage != 'Group' AND v_ballot.predicted_home_penalty_score IS NOT NULL AND v_ballot.predicted_away_penalty_score IS NOT NULL THEN
+            IF v_ballot.predicted_home_penalty_score > v_ballot.predicted_away_penalty_score THEN
+              v_outcome_pred := 'HOME';
+            ELSE
+              v_outcome_pred := 'AWAY';
+            END IF;
           ELSE
             v_outcome_pred := 'DRAW';
           END IF;
+        END IF;
 
+        -- Check exact 120-min match
+        IF v_ballot.predicted_home_score = v_match.home_score AND v_ballot.predicted_away_score = v_match.away_score THEN
+          -- User request: "if they predict the exact score, award them the +5"
+          v_score_pts := 5.0;
+          v_slots_hit := v_slots_hit + 1;
+        ELSE
+          -- Not an exact score, check just outcome
           IF v_outcome_pred = v_outcome_actual THEN
             v_score_pts := 2.0;
             v_slots_hit := v_slots_hit + 1;
+          END IF;
+        END IF;
+
+        -- Check Exact Penalty Match and add accuracy slots
+        IF v_is_penalty_actual THEN
+          IF v_ballot.predicted_home_penalty_score = v_match.home_penalty_score AND v_ballot.predicted_away_penalty_score = v_match.away_penalty_score THEN
+             v_penalty_pts := 2.0;
+          END IF;
+          
+          IF v_ballot.predicted_home_penalty_score IS NOT NULL AND v_ballot.predicted_away_penalty_score IS NOT NULL THEN
+            IF v_ballot.predicted_home_penalty_score = v_match.home_penalty_score THEN
+              v_slots_hit := v_slots_hit + 1;
+            END IF;
+            IF v_ballot.predicted_away_penalty_score = v_match.away_penalty_score THEN
+              v_slots_hit := v_slots_hit + 1;
+            END IF;
+            
+            -- Penalty Result (Outcome)
+            IF (v_ballot.predicted_home_penalty_score > v_ballot.predicted_away_penalty_score AND v_match.home_penalty_score > v_match.away_penalty_score) OR 
+               (v_ballot.predicted_home_penalty_score < v_ballot.predicted_away_penalty_score AND v_match.home_penalty_score < v_match.away_penalty_score) THEN
+               v_slots_hit := v_slots_hit + 1;
+            END IF;
           END IF;
         END IF;
 
@@ -86,6 +134,10 @@ BEGIN
       v_mcq_pts := v_mcq_pts * 2.0;
 
       v_slots_total := 4 + v_num_polls;
+      IF v_is_penalty_actual THEN
+        v_slots_total := v_slots_total + 3;
+      END IF;
+
       IF v_slots_total > 0 THEN
         v_accuracy := (v_slots_hit::numeric / v_slots_total::numeric) * 100.0;
       ELSE
@@ -100,14 +152,13 @@ BEGIN
         v_accuracy_bonus := 0.0;
       END IF;
 
-      v_total_ballot_pts := v_score_pts + v_team_pts + v_scorer_pts + v_mcq_pts + v_accuracy_bonus;
+      v_total_ballot_pts := v_score_pts + v_team_pts + v_scorer_pts + v_mcq_pts + v_penalty_pts + v_accuracy_bonus;
 
       -- 🃏 GAMIFICATION WILDCARDS 🃏
-      -- Using the requested rules: 2x if >60, 0.75x if <40, else neutral. +5.50 for Safety Net.
       IF v_ballot.played_card = 'MULTIPLIER' THEN
-        IF v_accuracy > 60 THEN
+        IF v_accuracy >= 60 THEN
           v_total_ballot_pts := v_total_ballot_pts * 2.0;
-        ELSIF v_accuracy < 40 THEN
+        ELSIF v_accuracy <= 40 THEN
           v_total_ballot_pts := v_total_ballot_pts * 0.75;
         END IF;
       ELSIF v_ballot.played_card = 'SAFETY_NET' THEN

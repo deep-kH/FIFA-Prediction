@@ -36,6 +36,8 @@ export interface Match {
   stage: string // 'Group', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final'
   home_score: number | null
   away_score: number | null
+  home_penalty_score?: number | null
+  away_penalty_score?: number | null
   top_scorer_id: number | null
   is_completed: boolean
   home_team?: Team
@@ -60,6 +62,8 @@ export interface Ballot {
   match_id: number
   predicted_home_score: number | null
   predicted_away_score: number | null
+  predicted_home_penalty_score?: number | null
+  predicted_away_penalty_score?: number | null
   predicted_top_scorer_id: number | null
   points_earned: number
   score_points_earned: number
