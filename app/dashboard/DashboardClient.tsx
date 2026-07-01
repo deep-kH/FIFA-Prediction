@@ -433,7 +433,7 @@ export default function DashboardClient({
 function MatchesTab({ matches, selectedMatchId, setSelectedMatchId, profile, allBallots, allPollAnswers, onBallotSaved, onPollAnswerSaved, onProfileUpdated, leaderboard }: any) {
   const [showCompleted, setShowCompleted] = useState(false)
   const upcoming = matches.filter((m: any) => !m.is_completed)
-  const completed = matches.filter((m: any) => m.is_completed)
+  const completed = [...matches].filter((m: any) => m.is_completed).reverse()
   const selectedMatch = matches.find((m: any) => m.id === selectedMatchId)
 
   const toggleMatch = (matchId: number) => {
