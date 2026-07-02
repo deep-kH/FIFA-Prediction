@@ -21,7 +21,7 @@ export default async function DashboardPage() {
 
   if (!profile) redirect('/login')
 
-  // Fetch all upcoming and live matches with team details
+  // Fetch all upcoming and live matches with team details for match >= 87
   const { data: matches } = await supabase
     .from('matches')
     .select(`
@@ -31,6 +31,7 @@ export default async function DashboardPage() {
       top_scorer:players(*),
       custom_polls(*)
     `)
+    .gte('id', 87)
     .order('kickoff_time', { ascending: true })
 
   // Fetch leaderboard (all profiles sorted by points)
